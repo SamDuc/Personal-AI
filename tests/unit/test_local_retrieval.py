@@ -1,9 +1,9 @@
-﻿from personal_ai.connectors.local_retrieval import (
+from personal_ai.core.models import AccessPolicy, DataItem
+from personal_ai.retrieval.local import (
     RetrievalRequest,
     RetrievalResult,
     retrieve_local_items,
 )
-from personal_ai.core.models import AccessPolicy, DataItem
 
 
 def make_item(
