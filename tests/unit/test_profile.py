@@ -96,3 +96,85 @@ def test_profile_with_real_metadata():
 
     assert profile.skills[0].name == "Python"
     assert profile.skills[0].verified is True
+
+
+def test_goal_contract_fields():
+    created = datetime(2026, 9, 1, 10, 0, tzinfo=UTC)
+    updated = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
+
+    goal = Goal(
+        id="goal-1",
+        title="Learn Python",
+        description="Build a solid Python foundation",
+        status="active",
+        priority="high",
+        created_at=created,
+        updated_at=updated,
+    )
+
+    assert goal.id == "goal-1"
+    assert goal.title == "Learn Python"
+    assert goal.description == "Build a solid Python foundation"
+    assert goal.status == "active"
+    assert goal.priority == "high"
+    assert goal.created_at == created
+    assert goal.updated_at == updated
+
+
+def test_skill_contract_fields():
+    skill = Skill(
+        name="Python",
+        level="intermediate",
+        verified=True,
+        metadata=ProfileMetadata(
+            source="trusted_system",
+            confidence="explicit",
+            sensitivity="normal",
+        ),
+    )
+
+    assert skill.name == "Python"
+    assert skill.level == "intermediate"
+    assert skill.verified is True
+    assert skill.metadata.source == "trusted_system"
+
+
+def test_project_contract_fields():
+    project = Project(
+        id="project-1",
+        name="Personal AI",
+        description="Local-first personal AI agent system",
+        status="active",
+        topics=["AI", "Python", "agents"],
+    )
+
+    assert project.id == "project-1"
+    assert project.name == "Personal AI"
+    assert project.description == "Local-first personal AI agent system"
+    assert project.status == "active"
+    assert project.topics == ["AI", "Python", "agents"]
+
+
+def test_environment_contract_fields():
+    updated = datetime(2026, 9, 25, 12, 0, tzinfo=UTC)
+
+    environment = Environment(
+        operating_system="Windows",
+        development_environment="Conda",
+        preferred_tools=["VS Code", "PowerShell"],
+        programming_languages=["Python"],
+        hardware=["PC"],
+        metadata=ProfileMetadata(
+            source="user",
+            confidence="explicit",
+            updated_at=updated,
+            sensitivity="normal",
+        ),
+    )
+
+    assert environment.operating_system == "Windows"
+    assert environment.development_environment == "Conda"
+    assert environment.preferred_tools == ["VS Code", "PowerShell"]
+    assert environment.programming_languages == ["Python"]
+    assert environment.hardware == ["PC"]
+    assert environment.metadata.updated_at == updated
