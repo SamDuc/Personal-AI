@@ -1,6 +1,9 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from personal_ai.core.memory import Memory, MemoryMetadata
+from personal_ai.core.memory_lifecycle import MemoryLifecycleStatus
 from personal_ai.core.memory_provenance import (
     MemoryConfidence,
     MemoryProvenanceMethod,
@@ -45,7 +48,7 @@ def test_memory_defaults_match_contract():
     assert memory.created_at is None
     assert memory.updated_at is None
     assert memory.expires_at is None
-    assert memory.status == "candidate"
+    assert memory.status is MemoryLifecycleStatus.CANDIDATE
     assert memory.sensitivity == "normal"
     assert memory.metadata is None
 
@@ -99,3 +102,23 @@ def test_memory_type_is_explicit():
 
     assert isinstance(memory.memory_type, MemoryType)
     assert memory.memory_type == MemoryType.SEMANTIC
+@pytest.mark.parametrize(
+    "status",
+    [
+        MemoryLifecycleStatus.CANDIDATE,
+        MemoryLifecycleStatus.ACTIVE,
+        MemoryLifecycleStatus.SUPERSEDED,
+        MemoryLifecycleStatus.ARCHIVED,
+        MemoryLifecycleStatus.EXPIRED,
+    ],
+)
+def test_memory_supports_all_lifecycle_statuses(status):
+    memory = Memory(
+        id="memory-lifecycle-test",
+        memory_type=MemoryType.SEMANTIC,
+        content="Lifecycle test",
+        provenance=create_test_provenance(),
+        status=status,
+    )
+
+    assert memory.status is status
