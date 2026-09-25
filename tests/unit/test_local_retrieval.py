@@ -40,6 +40,30 @@ def test_retrieval_returns_eligible_local_items() -> None:
     assert isinstance(results[0], RetrievalResult)
     assert results[0].item.id == item.id
 
+def test_retrieval_result_preserves_required_data_item_fields() -> None:
+    item = make_item(
+        item_id="local-contract",
+        content_ref="index://content/local-contract",
+    )
+    item.content_hash = "content-hash-123"
+    item.sensitivity = "private"
+
+    results = retrieve_local_items(
+        [item],
+        RetrievalRequest(query="hello"),
+    )
+
+    assert len(results) == 1
+
+    result_item = results[0].item
+
+    assert result_item.id == item.id
+    assert result_item.source == item.source
+    assert result_item.source_id == item.source_id
+    assert result_item.uri == item.uri
+    assert result_item.content_ref == item.content_ref
+    assert result_item.content_hash == item.content_hash
+    assert result_item.sensitivity == item.sensitivity
 
 def test_retrieval_rejects_unsearchable_items() -> None:
     item = make_item(searchable=False)
