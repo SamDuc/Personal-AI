@@ -1,0 +1,31 @@
+version: 1
+
+sources:
+
+  local_filesystem:
+    enabled: false
+    type: local_filesystem
+    access_mode: read_only
+
+  google_drive:
+    enabled: false
+    type: cloud_storage
+    provider: google
+
+  gmail:
+    enabled: false
+    type: email
+    provider: google
+
+  onedrive:
+    enabled: false
+    type: cloud_storage
+    provider: microsoft
+
+  cloud_database:
+    enabled: false
+    type: database
+
+  browser:
+    enabled: false
+    type: browser

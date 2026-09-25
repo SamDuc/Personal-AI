@@ -1,0 +1,41 @@
+version: 1
+
+defaults:
+
+  local_filesystem:
+    read: false
+    write: false
+    move: false
+    rename: false
+    delete: false
+
+  cloud_storage:
+    read: false
+    write: false
+    move: false
+    rename: false
+    delete: false
+
+  email:
+    read: false
+    send: false
+    delete: false
+
+  database:
+    read: false
+    write: false
+    update: false
+    delete: false
+
+  browser:
+    read: false
+    interact: false
+
+confirmation_required:
+
+  - move
+  - rename
+  - delete
+  - send
+  - share
+  - external_action
