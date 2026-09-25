@@ -51,7 +51,7 @@ def test_local_file_mapping_starts_read_only_and_not_searchable():
 
     item = local_file_to_data_item(metadata)
 
-    assert item.access_policy.read is True
+    assert item.access_policy.read is False
     assert item.access_policy.write is False
     assert item.content_available is False
     assert item.content_ref is None

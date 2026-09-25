@@ -42,6 +42,6 @@ def local_file_to_data_item(metadata: LocalFileMetadata) -> DataItem:
         indexed_at=None,
         source_modified_at=metadata.modified_at,
         sync_status="new",
-        access_policy=AccessPolicy(read=True, write=False),
+        access_policy=AccessPolicy(read=False, write=False),
         sensitivity="normal",
     )
