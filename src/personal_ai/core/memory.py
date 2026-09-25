@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from personal_ai.core.memory_provenance_model import MemoryProvenance
 from personal_ai.core.memory_types import MemoryType
 
 
 @dataclass
 class MemoryMetadata:
-    """Provenance, confidence, and sensitivity for a memory item."""
+    """Additional metadata for a memory item."""
 
     source: str = "user"
     confidence: str = "explicit"
@@ -21,8 +22,7 @@ class Memory:
     memory_type: MemoryType
     content: str
 
-    source: str = "user"
-    confidence: str = "explicit"
+    provenance: MemoryProvenance
 
     created_at: datetime | None = None
     updated_at: datetime | None = None
