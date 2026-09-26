@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from personal_ai.connectors.local_content_index import index_extracted_content
 from personal_ai.connectors.local_file_content_extraction import (
@@ -11,6 +11,7 @@ from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.llm import ChatMessage, LLMResponse
 from personal_ai.core.llm_integration import LLMIntegration
 from personal_ai.core.llm_runtime import LLMRuntime
+from personal_ai.filesystem.scope import FilesystemAccessScope
 from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.permissions.policy import PermissionPolicy
 from personal_ai.retrieval.local_integration import integrate_local_content_index
@@ -129,7 +130,9 @@ def test_local_file_retrieval_agent_tool_end_to_end(tmp_path: Path) -> None:
         for message in runtime.request_messages
     )
 
-    tool = LocalFileReadTool()
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([tmp_path]),
+    )
     executor = ToolExecutor()
     evaluator = make_evaluator(read=True)
 

@@ -1,6 +1,7 @@
 ﻿from pathlib import Path
 
 from personal_ai.core.agent import Agent
+from personal_ai.filesystem.scope import FilesystemAccessScope
 from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.permissions.policy import PermissionPolicy
 from personal_ai.tools.executor import ToolExecutor
@@ -29,7 +30,9 @@ def test_agent_can_coordinate_explicit_tool_execution(tmp_path: Path):
         encoding="utf-8",
     )
 
-    tool = LocalFileReadTool()
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([tmp_path]),
+    )
     executor = ToolExecutor()
     evaluator = make_evaluator(read=True)
 
@@ -57,7 +60,9 @@ def test_agent_tool_coordination_preserves_permission_boundary(
         encoding="utf-8",
     )
 
-    tool = LocalFileReadTool()
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([tmp_path]),
+    )
     executor = ToolExecutor()
     evaluator = make_evaluator(read=False)
 

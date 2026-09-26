@@ -1,5 +1,6 @@
 ﻿from pathlib import Path
 
+from personal_ai.filesystem.scope import FilesystemAccessScope
 from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.tools.model import ToolDefinition, ToolResult
 from personal_ai.tools.tool import Tool
@@ -12,6 +13,12 @@ class LocalFileReadTool(Tool):
         resource_category="local_filesystem",
         operation="read",
     )
+
+    def __init__(
+        self,
+        filesystem_scope: FilesystemAccessScope | None = None,
+    ) -> None:
+        self.filesystem_scope = filesystem_scope or FilesystemAccessScope([])
 
     def execute(
         self,
@@ -33,6 +40,12 @@ class LocalFileReadTool(Tool):
 
         if decision != "allowed":
             return ToolResult(status=decision)
+
+        if not self.filesystem_scope.is_allowed(path):
+            return ToolResult(
+                status="denied",
+                error=f"Path is outside authorized filesystem scope: {path}",
+            )
 
         if not path.exists():
             return ToolResult(
