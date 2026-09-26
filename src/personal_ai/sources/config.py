@@ -37,3 +37,7 @@ class SourceConfig:
             raise ValueError(f"invalid source configuration: {source_id}")
 
         return dict(source)
+
+    def is_enabled(self, source_id: str) -> bool:
+        source = self.get_source(source_id)
+        return source.get("enabled", False) is True

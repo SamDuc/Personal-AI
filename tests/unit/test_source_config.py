@@ -22,3 +22,8 @@ def test_source_config_rejects_unknown_source() -> None:
 
     with pytest.raises(KeyError):
         config.get_source("unknown_source")
+
+def test_source_config_reports_local_filesystem_disabled() -> None:
+    config = SourceConfig.from_file(SOURCES_PATH)
+
+    assert config.is_enabled("local_filesystem") is False
