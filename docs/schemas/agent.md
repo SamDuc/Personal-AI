@@ -316,7 +316,36 @@ The initial implementation MUST:
 The initial implementation exists to validate the agent boundary and
 request/response orchestration before additional capabilities are
 integrated.
+## 20. Agent Interface
 
-## 20. Contract Version
+The initial agent implementation MUST expose a stable operation for
+processing a user request.
+
+The conceptual API is:
+
+`run(user_request: str, session: ConversationSession) -> str`
+
+The operation MUST:
+
+- accept the user's request as a string;
+- preserve the request content;
+- use the provided conversation session;
+- coordinate LLM generation through the existing LLM integration boundary;
+- return the generated response text.
+
+The operation MUST NOT:
+
+- construct or select an LLM provider;
+- invoke `LLMProvider.generate()` directly;
+- access personal data directly;
+- execute tools directly;
+- perform external actions;
+- modify long-term memory;
+- create automation.
+
+The exact Python type annotations MAY remain an implementation detail,
+but the public operation semantics MUST remain compatible with this
+interface.
+## 21. Contract Version
 
 Contract version: 1.
