@@ -7,3 +7,8 @@ class ToolDefinition:
     description: str
     resource_category: str
     operation: str
+@dataclass
+class ToolResult:
+    status: str
+    result: object | None = None
+    error: str | None = None
