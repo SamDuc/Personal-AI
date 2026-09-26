@@ -1,6 +1,7 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from personal_ai.connectors.local_content_index import index_extracted_content
+from personal_ai.retrieval.local_integration import integrate_local_content_index
 from personal_ai.connectors.local_file_content_extraction import (
     extract_local_file_content,
 )
@@ -58,12 +59,13 @@ def test_real_file_agent_retrieval_llm_pipeline(tmp_path: Path) -> None:
     assert len(discovered) == 1
 
     item = local_file_to_data_item(discovered[0])
+    item.access_policy.read = True
 
     extracted = extract_local_file_content(path)
-    indexed = index_extracted_content(extracted)
+    item = integrate_local_content_index(item, extracted)
 
     searchable = SearchableContent(
-        index=indexed,
+        item=item,
         text=extracted.text,
     )
 
@@ -75,7 +77,7 @@ def test_real_file_agent_retrieval_llm_pipeline(tmp_path: Path) -> None:
         return [
             searchable.text
             for result in results
-            if result.content_ref == searchable.index.content_ref
+            if result.item.content_ref == searchable.item.content_ref
         ]
 
     runtime = ContextAwareRuntime()

@@ -1,9 +1,8 @@
-from pathlib import Path
-
-import pytest
+﻿from pathlib import Path
 
 from personal_ai.connectors.local_content_index import index_extracted_content
 from personal_ai.connectors.local_file_content_extraction import ExtractedContent
+from personal_ai.core.models import AccessPolicy, DataItem
 from personal_ai.retrieval.local_search import (
     LocalSearchRequest,
     SearchableContent,
@@ -14,6 +13,7 @@ from personal_ai.retrieval.local_search import (
 def make_searchable_content(
     tmp_path: Path,
     text: str = "Personal AI project notes",
+    read: bool = True,
 ) -> SearchableContent:
     extracted = ExtractedContent(
         path=tmp_path / "notes.txt",
@@ -25,13 +25,26 @@ def make_searchable_content(
 
     indexed = index_extracted_content(extracted)
 
+    item = DataItem(
+        id=f"local:{extracted.path}",
+        source="local_filesystem",
+        source_id=str(extracted.path),
+        uri=extracted.path.resolve().as_uri(),
+        item_type="file",
+        content_available=indexed.content_available,
+        content_ref=indexed.content_ref,
+        content_hash=indexed.content_hash,
+        searchable=indexed.searchable,
+        access_policy=AccessPolicy(read=read),
+    )
+
     return SearchableContent(
-        index=indexed,
+        item=item,
         text=text,
     )
 
 
-def test_search_returns_matching_content(tmp_path: Path) -> None:
+def test_search_returns_matching_authorized_content(tmp_path: Path) -> None:
     searchable = make_searchable_content(
         tmp_path,
         "Personal AI project architecture",
@@ -43,7 +56,49 @@ def test_search_returns_matching_content(tmp_path: Path) -> None:
     )
 
     assert len(results) == 1
-    assert results[0].content_ref == searchable.index.content_ref
+    assert results[0].item.id == searchable.item.id
+    assert results[0].item.content_ref == searchable.item.content_ref
+
+
+def test_search_rejects_unreadable_item(tmp_path: Path) -> None:
+    searchable = make_searchable_content(
+        tmp_path,
+        "Personal AI project architecture",
+        read=False,
+    )
+
+    results = search_local_content(
+        [searchable],
+        LocalSearchRequest(query="architecture"),
+    )
+
+    assert results == []
+
+
+def test_search_preserves_canonical_data_item(tmp_path: Path) -> None:
+    searchable = make_searchable_content(
+        tmp_path,
+        "Personal AI project architecture",
+    )
+
+    searchable.item.sensitivity = "private"
+
+    results = search_local_content(
+        [searchable],
+        LocalSearchRequest(query="architecture"),
+    )
+
+    assert len(results) == 1
+    result_item = results[0].item
+
+    assert result_item.id == searchable.item.id
+    assert result_item.source == searchable.item.source
+    assert result_item.source_id == searchable.item.source_id
+    assert result_item.uri == searchable.item.uri
+    assert result_item.content_ref == searchable.item.content_ref
+    assert result_item.content_hash == searchable.item.content_hash
+    assert result_item.sensitivity == "private"
+    assert result_item.access_policy.read is True
 
 
 def test_search_does_not_return_non_matching_content(tmp_path: Path) -> None:
@@ -63,11 +118,15 @@ def test_search_does_not_return_non_matching_content(tmp_path: Path) -> None:
 def test_search_rejects_empty_query(tmp_path: Path) -> None:
     searchable = make_searchable_content(tmp_path)
 
+    import pytest
+
     with pytest.raises(ValueError, match="query"):
         search_local_content(
             [searchable],
             LocalSearchRequest(query=" "),
         )
+
+
 def test_search_respects_limit(tmp_path: Path) -> None:
     first = make_searchable_content(
         tmp_path / "first",
@@ -85,79 +144,34 @@ def test_search_respects_limit(tmp_path: Path) -> None:
 
     assert len(results) == 1
 
+
 def test_search_skips_unsearchable_content(tmp_path: Path) -> None:
     searchable = make_searchable_content(
         tmp_path / "searchable",
         "Personal AI architecture",
     )
 
-    indexed = index_extracted_content(
-        ExtractedContent(
-            path=tmp_path / "unsearchable" / "notes.txt",
-            text="Personal AI architecture",
-            content_hash="unsearchable-hash",
-            content_available=True,
-            extraction_version="1",
-        )
-    )
-
-    unsearchable_index = indexed.__class__(
-        content_ref=indexed.content_ref,
-        content_hash=indexed.content_hash,
-        content_available=indexed.content_available,
-        searchable=False,
-        embedding_ref=indexed.embedding_ref,
-        indexed_at=indexed.indexed_at,
-        sync_status=indexed.sync_status,
-    )
-
-    unsearchable = SearchableContent(
-        index=unsearchable_index,
-        text="Personal AI architecture",
-    )
+    searchable.item.searchable = False
 
     results = search_local_content(
-        [unsearchable, searchable],
+        [searchable],
         LocalSearchRequest(query="architecture"),
     )
 
-    assert len(results) == 1
-    assert results[0].content_ref == searchable.index.content_ref
+    assert results == []
+
+
 def test_search_skips_unavailable_content(tmp_path: Path) -> None:
     searchable = make_searchable_content(
-        tmp_path / "searchable",
+        tmp_path / "unavailable",
         "Personal AI architecture",
     )
 
-    unavailable_index = index_extracted_content(
-        ExtractedContent(
-            path=tmp_path / "unavailable" / "notes.txt",
-            text="Personal AI architecture",
-            content_hash="unavailable-hash",
-            content_available=True,
-            extraction_version="1",
-        )
-    )
-
-    unavailable_index = unavailable_index.__class__(
-        content_ref=unavailable_index.content_ref,
-        content_hash=unavailable_index.content_hash,
-        content_available=False,
-        searchable=unavailable_index.searchable,
-        embedding_ref=unavailable_index.embedding_ref,
-        indexed_at=unavailable_index.indexed_at,
-        sync_status=unavailable_index.sync_status,
-    )
-
-    unavailable = SearchableContent(
-        index=unavailable_index,
-        text="Personal AI architecture",
-    )
+    searchable.item.content_available = False
 
     results = search_local_content(
-        [unavailable, searchable],
+        [searchable],
         LocalSearchRequest(query="architecture"),
     )
 
-    assert len(results) == 1
-    assert results[0].content_ref == searchable.index.content_ref
+    assert results == []

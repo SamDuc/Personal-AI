@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from personal_ai.connectors.local_content_index import index_extracted_content
 from personal_ai.connectors.local_file_content_extraction import (
@@ -88,13 +88,14 @@ def test_local_file_retrieval_agent_tool_end_to_end(tmp_path: Path) -> None:
     assert extracted.text == content
 
     item = integrate_local_content_index(item, extracted)
+    item.access_policy.read = True
     assert item.content_available is True
     assert item.content_ref is not None
     assert item.searchable is True
 
     indexed = index_extracted_content(extracted)
     searchable = SearchableContent(
-        index=indexed,
+        item=item,
         text=extracted.text,
     )
 
@@ -106,7 +107,7 @@ def test_local_file_retrieval_agent_tool_end_to_end(tmp_path: Path) -> None:
         return [
             searchable.text
             for result in results
-            if result.content_ref == searchable.index.content_ref
+            if result.item.content_ref == searchable.item.content_ref
         ]
 
     retrieved = retrieve("Raspberry Pi personal AI")
