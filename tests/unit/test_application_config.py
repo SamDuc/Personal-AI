@@ -16,7 +16,7 @@ def test_application_config_loads_all_required_configs(tmp_path):
         encoding="utf-8",
     )
     (config_dir / "llm.yaml").write_text(
-        "version: 1\nproviders:\n  fake:\n    enabled: true\n    type: local\n",
+        "version: 2\nproviders:\n  fake:\n    enabled: true\n    type: local\n    adapter: fake\n",
         encoding="utf-8",
     )
     (config_dir / "filesystem.yaml").write_text(
@@ -28,7 +28,7 @@ def test_application_config_loads_all_required_configs(tmp_path):
         ApplicationPaths(config_dir=config_dir, data_dir=tmp_path / "data")
     )
 
-    assert config.llm_config.version == 1
+    assert config.llm_config.version == 2
     assert config.llm_config.providers["fake"]["enabled"] is True
     assert config.filesystem_scope.authorized_roots == ()
 

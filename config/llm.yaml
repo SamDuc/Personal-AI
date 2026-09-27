@@ -1,6 +1,15 @@
-﻿version: 1
+version: 2
 
 providers:
   fake:
     enabled: true
     type: local
+    adapter: fake
+
+  my_llm:
+    enabled: false
+    type: cloud
+    adapter: openai_compatible
+    base_url: "https://example.invalid/v1"
+    model: "example-model"
+    api_key_env: PERSONAL_AI_LLM_API_KEY

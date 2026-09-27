@@ -1,3 +1,5 @@
+import pytest
+
 from personal_ai.core.llm_config import (
     LLMProviderConfig,
     validate_llm_provider_config,
@@ -6,11 +8,12 @@ from personal_ai.core.llm_config import (
 
 def test_valid_provider_configuration() -> None:
     config = {
-        "version": 1,
+        "version": 2,
         "providers": {
             "example": {
                 "enabled": False,
                 "type": "cloud",
+                "adapter": "fake",
             }
         },
     }
@@ -18,7 +21,7 @@ def test_valid_provider_configuration() -> None:
     result = validate_llm_provider_config(config)
 
     assert isinstance(result, LLMProviderConfig)
-    assert result.version == 1
+    assert result.version == 2
     assert result.providers["example"]["enabled"] is False
     assert result.providers["example"]["type"] == "cloud"
 
@@ -38,7 +41,7 @@ def test_missing_version_is_rejected() -> None:
 
 def test_invalid_provider_type_is_rejected() -> None:
     config = {
-        "version": 1,
+        "version": 2,
         "providers": {
             "example": {
                 "enabled": False,
@@ -57,11 +60,12 @@ def test_invalid_provider_type_is_rejected() -> None:
 
 def test_non_boolean_enabled_is_rejected() -> None:
     config = {
-        "version": 1,
+        "version": 2,
         "providers": {
             "example": {
                 "enabled": "false",
                 "type": "cloud",
+                "adapter": "fake",
             }
         },
     }
@@ -76,11 +80,12 @@ def test_non_boolean_enabled_is_rejected() -> None:
 
 def test_raw_api_key_is_rejected() -> None:
     config = {
-        "version": 1,
+        "version": 2,
         "providers": {
             "example": {
                 "enabled": True,
                 "type": "cloud",
+                "adapter": "fake",
                 "api_key": "secret-value",
             }
         },
@@ -96,11 +101,12 @@ def test_raw_api_key_is_rejected() -> None:
 
 def test_raw_secret_is_rejected() -> None:
     config = {
-        "version": 1,
+        "version": 2,
         "providers": {
             "example": {
                 "enabled": True,
                 "type": "cloud",
+                "adapter": "fake",
                 "secret": "secret-value",
             }
         },
@@ -116,11 +122,12 @@ def test_raw_secret_is_rejected() -> None:
 
 def test_unknown_provider_field_is_rejected() -> None:
     config = {
-        "version": 1,
+        "version": 2,
         "providers": {
             "example": {
                 "enabled": False,
                 "type": "cloud",
+                "adapter": "fake",
                 "random_field": "unexpected",
             }
         },
@@ -132,3 +139,93 @@ def test_unknown_provider_field_is_rejected() -> None:
         pass
     else:
         raise AssertionError("Unknown provider fields must be rejected")
+
+def test_valid_openai_compatible_provider_configuration() -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": False,
+                "type": "cloud",
+                "adapter": "openai_compatible",
+                "base_url": "http://localhost:4000/v1",
+                "model": "test-model",
+                "api_key_env": "TEST_LLM_API_KEY",
+            }
+        },
+    }
+
+    result = validate_llm_provider_config(config)
+
+    assert result.version == 2
+    assert result.providers["my_llm"]["adapter"] == "openai_compatible"
+
+
+def test_openai_compatible_requires_base_url() -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": False,
+                "type": "cloud",
+                "adapter": "openai_compatible",
+                "model": "test-model",
+                "api_key_env": "TEST_LLM_API_KEY",
+            }
+        },
+    }
+
+    with pytest.raises(ValueError, match="base_url"):
+        validate_llm_provider_config(config)
+
+
+def test_openai_compatible_requires_model() -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": False,
+                "type": "cloud",
+                "adapter": "openai_compatible",
+                "base_url": "http://localhost:4000/v1",
+                "api_key_env": "TEST_LLM_API_KEY",
+            }
+        },
+    }
+
+    with pytest.raises(ValueError, match="model"):
+        validate_llm_provider_config(config)
+
+
+def test_openai_compatible_requires_api_key_env() -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": False,
+                "type": "cloud",
+                "adapter": "openai_compatible",
+                "base_url": "http://localhost:4000/v1",
+                "model": "test-model",
+            }
+        },
+    }
+
+    with pytest.raises(ValueError, match="api_key_env"):
+        validate_llm_provider_config(config)
+
+
+def test_unknown_adapter_is_rejected() -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": False,
+                "type": "cloud",
+                "adapter": "unknown_adapter",
+            }
+        },
+    }
+
+    with pytest.raises(ValueError, match="Unsupported provider adapter"):
+        validate_llm_provider_config(config)
