@@ -67,3 +67,18 @@ def test_policy_rejects_missing_file() -> None:
         PermissionPolicy.from_file(
             "config/permissions/missing.yaml"
         )
+def test_policy_does_not_alias_input_dictionary():
+    policy_data = {
+        "defaults": {
+            "local_filesystem": {
+                "read": False,
+            },
+        },
+        "confirmation_required": [],
+    }
+
+    policy = PermissionPolicy(policy_data)
+
+    policy_data["defaults"]["local_filesystem"]["read"] = True
+
+    assert policy.get_defaults()["local_filesystem"]["read"] is False

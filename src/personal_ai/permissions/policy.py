@@ -9,8 +9,7 @@ class PermissionPolicy:
         if not isinstance(policy, dict):
             raise ValueError("policy must be a dictionary")
 
-        self.policy = policy
-
+        self.policy = deepcopy(policy)
     @classmethod
     def from_file(cls, path: str | Path) -> "PermissionPolicy":
         policy_path = Path(path)
