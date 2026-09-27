@@ -8,11 +8,14 @@ version = "0.1.0"
 description = "Personal AI Agent System"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
-license = {text = "MIT"}
+license = "MIT"
 
 dependencies = [
     "PyYAML>=6.0",
 ]
+
+[project.scripts]
+personal-ai = "personal_ai.application.main:main"
 
 [project.optional-dependencies]
 dev = [

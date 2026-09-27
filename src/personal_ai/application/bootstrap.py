@@ -1,0 +1,51 @@
+﻿from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+
+from personal_ai.application.config import ApplicationConfig
+from personal_ai.application.local_retriever import create_local_retriever
+from personal_ai.application.paths import ApplicationPaths
+from personal_ai.core.agent import Agent
+from personal_ai.core.llm_factory import create_llm_provider
+from personal_ai.core.llm_integration import LLMIntegration
+from personal_ai.core.llm_runtime import LLMRuntime
+from personal_ai.permissions.evaluator import PermissionEvaluator
+
+
+@dataclass(frozen=True)
+class ApplicationRuntime:
+    paths: ApplicationPaths
+    config: ApplicationConfig
+    permission_evaluator: PermissionEvaluator
+    agent: Agent
+
+
+def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
+    resolved_paths = paths or ApplicationPaths.from_environment()
+    config = ApplicationConfig.from_paths(resolved_paths)
+
+    provider_id = os.environ.get("PERSONAL_AI_LLM_PROVIDER", "fake")
+    provider = create_llm_provider(config.llm_config, provider_id)
+
+    runtime = LLMRuntime(provider)
+    integration = LLMIntegration(runtime)
+    permission_evaluator = PermissionEvaluator(config.permission_policy)
+
+    retriever = create_local_retriever(
+        filesystem_scope=config.filesystem_scope,
+        source_config=config.source_config,
+        permission_evaluator=permission_evaluator,
+    )
+
+    agent = Agent(
+        integration,
+        retriever=retriever,
+    )
+
+    return ApplicationRuntime(
+        paths=resolved_paths,
+        config=config,
+        permission_evaluator=permission_evaluator,
+        agent=agent,
+    )
