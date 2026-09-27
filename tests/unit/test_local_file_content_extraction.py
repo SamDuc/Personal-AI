@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 import pytest
 
@@ -49,4 +49,12 @@ def test_unsupported_file_type_is_rejected(tmp_path: Path) -> None:
     source.write_bytes(b"binary-data")
 
     with pytest.raises(ValueError, match="Unsupported"):
+        extract_local_file_content(source)
+
+
+def test_invalid_utf8_text_raises_extraction_error(tmp_path: Path) -> None:
+    source = tmp_path / "invalid.txt"
+    source.write_bytes(b"valid-prefix\xffinvalid")
+
+    with pytest.raises(ValueError, match="decode"):
         extract_local_file_content(source)

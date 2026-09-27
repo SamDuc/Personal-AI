@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from personal_ai.connectors.local_content_index import index_extracted_content
 from personal_ai.connectors.local_file_content_extraction import (
     extract_local_file_content,
 )
@@ -47,11 +46,7 @@ class ContextAwareRuntime(LLMRuntime):
     def generate(self, request):
         self.request_messages = list(request.messages)
 
-        context = [
-            message.content
-            for message in request.messages
-            if message.role == "system"
-        ]
+        context = [message.content for message in request.messages if message.role == "system"]
 
         return LLMResponse(
             text=f"Answer based on context: {context[-1]}",
@@ -93,7 +88,6 @@ def test_local_file_retrieval_agent_tool_end_to_end(tmp_path: Path) -> None:
     assert item.content_ref is not None
     assert item.searchable is True
 
-    indexed = index_extracted_content(extracted)
     searchable = SearchableContent(
         item=item,
         text=extracted.text,
@@ -126,8 +120,7 @@ def test_local_file_retrieval_agent_tool_end_to_end(tmp_path: Path) -> None:
     assert response.startswith("Answer based on context:")
     assert content in response
     assert any(
-        message.role == "system"
-        and content in message.content
+        message.role == "system" and content in message.content
         for message in runtime.request_messages
     )
 
