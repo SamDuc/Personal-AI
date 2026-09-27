@@ -15,6 +15,22 @@ class Executor:
     def capability_ids(self) -> tuple[str, ...]:
         return tuple(self._capabilities)
 
+    def with_capabilities(
+        self,
+        capabilities: dict[str, Capability],
+    ) -> "Executor":
+        if not isinstance(capabilities, dict):
+            raise ValueError("capabilities must be a dictionary")
+
+        merged = dict(self._capabilities)
+
+        for capability_id in capabilities:
+            if capability_id in merged:
+                raise ValueError(f"duplicate capability: {capability_id}")
+
+        merged.update(capabilities)
+        return Executor(merged)
+
     def execute(self, plan: ExecutionPlan) -> list[object]:
         if not isinstance(plan, ExecutionPlan):
             raise ValueError("plan must be an ExecutionPlan")

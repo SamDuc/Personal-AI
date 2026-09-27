@@ -57,3 +57,38 @@ def test_executor_rejects_invalid_plan() -> None:
 
     with pytest.raises(ValueError, match="ExecutionPlan"):
         executor.execute("not-a-plan")
+
+def test_executor_can_bind_additional_capabilities() -> None:
+    executor = Executor({})
+
+    bound = executor.with_capabilities(
+        {
+            "respond": lambda value: f"response: {value}",
+        }
+    )
+
+    assert executor.capability_ids == ()
+    assert bound.capability_ids == ("respond",)
+
+    plan = ExecutionPlan(
+        plan_id="plan-1",
+        original_request="request",
+        steps=(
+            PlanStep("step-1", "respond", "hello"),
+        ),
+    )
+
+    assert bound.execute(plan) == ["response: hello"]
+def test_executor_rejects_duplicate_capability_binding() -> None:
+    executor = Executor(
+        {
+            "respond": lambda value: value,
+        }
+    )
+
+    with pytest.raises(ValueError, match="duplicate capability: respond"):
+        executor.with_capabilities(
+            {
+                "respond": lambda value: f"replacement: {value}",
+            }
+        )

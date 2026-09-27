@@ -2,6 +2,7 @@ import pytest
 
 from personal_ai.core.agent import Agent
 from personal_ai.core.conversation_session import ConversationSession
+from personal_ai.core.executor import Executor
 from personal_ai.core.llm import ChatMessage, LLMResponse
 from personal_ai.core.llm_integration import LLMIntegration
 from personal_ai.core.llm_runtime import LLMRuntime
@@ -110,6 +111,37 @@ def test_agent_rejects_non_string_user_request() -> None:
     with pytest.raises(ValueError):
         agent.run(123, session)
 
+
+def test_agent_rejects_partial_planning_configuration() -> None:
+    runtime = FakeRuntime(
+        LLMResponse(text="Response"),
+    )
+    integration = LLMIntegration(runtime)
+
+    with pytest.raises(
+        ValueError,
+        match="planner and executor must be provided together",
+    ):
+        Agent(
+            integration,
+            planner=object(),
+        )
+
+
+def test_agent_rejects_executor_without_planner() -> None:
+    runtime = FakeRuntime(
+        LLMResponse(text="Response"),
+    )
+    integration = LLMIntegration(runtime)
+
+    with pytest.raises(
+        ValueError,
+        match="planner and executor must be provided together",
+    ):
+        Agent(
+            integration,
+            executor=Executor({}),
+        )
 
 def test_agent_does_not_claim_success_when_generation_fails() -> None:
     session = ConversationSession()

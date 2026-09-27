@@ -8,9 +8,11 @@ from personal_ai.application.local_retriever import create_local_retriever
 from personal_ai.application.paths import ApplicationPaths
 from personal_ai.core.agent import Agent
 from personal_ai.core.agent_router import AgentRoute, AgentRouter
+from personal_ai.core.executor import Executor
 from personal_ai.core.llm_factory import create_llm_provider
 from personal_ai.core.llm_integration import LLMIntegration
 from personal_ai.core.llm_runtime import LLMRuntime
+from personal_ai.core.planner import DeterministicPlanner
 from personal_ai.permissions.evaluator import PermissionEvaluator
 
 
@@ -19,6 +21,8 @@ class ApplicationRuntime:
     paths: ApplicationPaths
     config: ApplicationConfig
     permission_evaluator: PermissionEvaluator
+    planner: DeterministicPlanner
+    executor: Executor
     agent: Agent
     agent_router: AgentRouter
 
@@ -40,9 +44,14 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         permission_evaluator=permission_evaluator,
     )
 
+    planner = DeterministicPlanner()
+    executor = Executor({})
+
     agent = Agent(
         integration,
         retriever=retriever,
+        planner=planner,
+        executor=executor,
     )
 
     agent_router = AgentRouter(
@@ -58,6 +67,8 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         paths=resolved_paths,
         config=config,
         permission_evaluator=permission_evaluator,
+        planner=planner,
+        executor=executor,
         agent=agent,
         agent_router=agent_router,
     )
