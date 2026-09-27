@@ -143,3 +143,23 @@ def test_local_file_read_rejects_directory(tmp_path: Path):
     assert result.status == "invalid_input"
     assert result.result is None
     assert result.error is not None
+
+def test_local_file_read_denies_path_traversal_outside_scope(tmp_path: Path):
+    authorized_root = tmp_path / "authorized"
+    authorized_root.mkdir()
+
+    secret = tmp_path / "secret.txt"
+    secret.write_text("secret", encoding="utf-8")
+
+    traversal_path = authorized_root / ".." / "secret.txt"
+
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([authorized_root]),
+    )
+    evaluator = make_evaluator(read=True)
+
+    result = tool.execute(str(traversal_path), evaluator)
+
+    assert result.status == "denied"
+    assert result.result is None
+    assert result.error is not None
