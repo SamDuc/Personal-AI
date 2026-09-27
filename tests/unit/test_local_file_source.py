@@ -56,3 +56,22 @@ def test_enabled_local_filesystem_source_propagates_missing_scope_error(
 
     with pytest.raises(FileNotFoundError):
         discover_enabled_local_files(missing, config)
+
+def test_enabled_local_filesystem_source_propagates_file_scope_error(
+    tmp_path: Path,
+) -> None:
+    file_scope = tmp_path / "paper.pdf"
+    file_scope.write_bytes(b"pdf")
+
+    config = SourceConfig(
+        {
+            "sources": {
+                "local_filesystem": {
+                    "enabled": True,
+                }
+            }
+        }
+    )
+
+    with pytest.raises(NotADirectoryError):
+        discover_enabled_local_files(file_scope, config)
