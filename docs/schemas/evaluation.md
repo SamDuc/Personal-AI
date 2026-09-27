@@ -7,6 +7,39 @@ performed against an application operation or system invariant.
 
 Evaluation produces evidence. It does not modify application state.
 
+## Data Model
+
+### EvaluationEvidence
+
+`EvaluationEvidence` is immutable evidence supplied to an evaluation.
+
+Fields:
+
+- `evidence_id`: explicit evidence identifier;
+- `evaluation_id`: evaluation that owns the evidence;
+- `check`: check supported by the evidence;
+- `passed`: whether this evidence supports the check;
+- `detail`: descriptive evidence detail;
+- `version`: evaluation contract version.
+
+Evidence MUST belong to the same evaluation and MUST reference a
+check present in that evaluation.
+
+### EvaluationResult
+
+`EvaluationResult` is the immutable aggregate produced by evaluation.
+
+Fields:
+
+- `evaluation_id`;
+- `passed`;
+- `checks`;
+- `failures`;
+- `evidence`;
+- `version`.
+
+Existing callers may omit `evidence`; the default is an empty tuple.
+
 ## Responsibilities
 
 The evaluation boundary:
@@ -14,6 +47,7 @@ The evaluation boundary:
 - accepts an explicit evaluation identifier;
 - records the checks that were performed;
 - records explicit failures;
+- records supplied evaluation evidence;
 - determines whether the evaluation passed;
 - returns an immutable evaluation result.
 
@@ -33,6 +67,8 @@ Evaluation MUST NOT:
 - perform external actions.
 
 Evaluation observes supplied evidence and produces a result.
+
+Evidence is descriptive data only. It MUST NOT authorize an operation.
 
 ## Deterministic Semantics
 

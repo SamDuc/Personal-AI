@@ -3,6 +3,7 @@ import pytest
 from personal_ai.core.evaluation import (
     SUPPORTED_EVALUATION_VERSION,
     EvaluationContract,
+    EvaluationEvidence,
     EvaluationResult,
 )
 from personal_ai.permissions.evaluator import PermissionEvaluator
@@ -22,6 +23,7 @@ def test_evaluation_passes_without_failures() -> None:
         "filesystem-scope",
     )
     assert result.failures == ()
+    assert result.evidence == ()
     assert result.version == SUPPORTED_EVALUATION_VERSION
 
 
@@ -34,6 +36,59 @@ def test_evaluation_fails_with_explicit_failure() -> None:
 
     assert result.passed is False
     assert result.failures == ("permission invariant failed",)
+
+
+def test_evaluation_preserves_supplied_evidence() -> None:
+    evidence = EvaluationEvidence(
+        evidence_id="evidence-1",
+        evaluation_id="security-check",
+        check="permission-deny-by-default",
+        passed=True,
+        detail="read operation remained denied",
+    )
+
+    result = EvaluationContract().evaluate(
+        evaluation_id="security-check",
+        checks=("permission-deny-by-default",),
+        evidence=(evidence,),
+    )
+
+    assert result.passed is True
+    assert result.evidence == (evidence,)
+
+
+def test_evaluation_rejects_evidence_from_another_evaluation() -> None:
+    evidence = EvaluationEvidence(
+        evidence_id="evidence-1",
+        evaluation_id="other-check",
+        check="permission-deny-by-default",
+        passed=True,
+        detail="read operation remained denied",
+    )
+
+    with pytest.raises(ValueError, match="evidence evaluation_id"):
+        EvaluationContract().evaluate(
+            evaluation_id="security-check",
+            checks=("permission-deny-by-default",),
+            evidence=(evidence,),
+        )
+
+
+def test_evaluation_rejects_evidence_for_unknown_check() -> None:
+    evidence = EvaluationEvidence(
+        evidence_id="evidence-1",
+        evaluation_id="security-check",
+        check="filesystem-scope",
+        passed=True,
+        detail="filesystem remained scoped",
+    )
+
+    with pytest.raises(ValueError, match="evidence check"):
+        EvaluationContract().evaluate(
+            evaluation_id="security-check",
+            checks=("permission-deny-by-default",),
+            evidence=(evidence,),
+        )
 
 
 def test_evaluation_requires_identifier() -> None:
@@ -89,6 +144,20 @@ def test_evaluation_result_is_immutable() -> None:
     with pytest.raises(AttributeError):
         result.passed = False
 
+
+def test_evaluation_evidence_is_immutable() -> None:
+    evidence = EvaluationEvidence(
+        evidence_id="evidence-1",
+        evaluation_id="check",
+        check="permission",
+        passed=True,
+        detail="permission remained denied",
+    )
+
+    with pytest.raises(AttributeError):
+        evidence.passed = False
+
+
 def test_passing_evaluation_does_not_grant_permission() -> None:
     policy = PermissionPolicy(
         {
@@ -110,6 +179,15 @@ def test_passing_evaluation_does_not_grant_permission() -> None:
     result = EvaluationContract().evaluate(
         evaluation_id="security-check",
         checks=("permission-deny-by-default",),
+        evidence=(
+            EvaluationEvidence(
+                evidence_id="evidence-1",
+                evaluation_id="security-check",
+                check="permission-deny-by-default",
+                passed=True,
+                detail="read operation remained denied",
+            ),
+        ),
     )
 
     after = evaluator.evaluate(
