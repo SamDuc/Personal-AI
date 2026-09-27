@@ -8,6 +8,8 @@ from personal_ai.application.local_retriever import create_local_retriever
 from personal_ai.application.paths import ApplicationPaths
 from personal_ai.core.agent import Agent
 from personal_ai.core.agent_router import AgentRoute, AgentRouter
+from personal_ai.core.automation_scheduler import AutomationScheduler
+from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.executor import Executor
 from personal_ai.core.llm_factory import create_llm_provider
 from personal_ai.core.llm_integration import LLMIntegration
@@ -25,6 +27,7 @@ class ApplicationRuntime:
     executor: Executor
     agent: Agent
     agent_router: AgentRouter
+    automation_scheduler: AutomationScheduler
 
 
 def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
@@ -63,6 +66,20 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         ]
     )
 
+    def automation_dispatcher(route_id: str, request: str) -> object:
+        session = ConversationSession(
+            session_id=f"automation:{route_id}",
+        )
+        return agent_router.run(
+            route_id=route_id,
+            user_request=request,
+            session=session,
+        )
+
+    automation_scheduler = AutomationScheduler(
+        automation_dispatcher,
+    )
+
     return ApplicationRuntime(
         paths=resolved_paths,
         config=config,
@@ -71,4 +88,5 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         executor=executor,
         agent=agent,
         agent_router=agent_router,
+        automation_scheduler=automation_scheduler,
     )
