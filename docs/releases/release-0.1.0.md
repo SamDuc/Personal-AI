@@ -4,7 +4,7 @@
 
 - Application: `personal-ai`
 - Version: `0.1.0`
-- Git revision: `9f2c9e1`
+- Git revision: `572234f`
 - Release type: initial local Python release
 - Deployment Contract: Version 1
 
@@ -44,7 +44,7 @@ Default deployment behavior remains deny-by-default. The local filesystem source
 Validation completed before this release record:
 
 - `python -m compileall -q src tests` — PASS
-- `python -m pytest -q` — 288 passed, 1 skipped
+- `python -m pytest -q` — 361 passed, 1 skipped
 - `ruff check .` — PASS
 - `python -m pip check` — PASS
 - `personal-ai` entry point — PASS
@@ -59,9 +59,9 @@ Validation completed before this release record:
 Generated distribution artifacts:
 
 - `personal_ai-0.1.0-py3-none-any.whl`
-  - SHA256: `3F74A50F633B417BC539F24B470308B99CF36820A8AFC96742879C70E0D9DB08`
+  - SHA256: `B29050B4353C3A7A9E736FA9DD10651BA78AE586E666A23D1A2F2E311C8383DD`
 - `personal_ai-0.1.0.tar.gz`
-  - SHA256: `B299276A8541B48C5CFD3C6EF0B09A4BD84E3F7C2F81F3C6E06DA840E6BF3607`
+  - SHA256: `F617EEF05CC9FFB389E33BB57D3F5C78289C3560309A81FCB9E3C01A0F337953`
 
 The generated `dist/` artifacts are release outputs and are not committed to Git.
 
@@ -75,6 +75,6 @@ The release is reproducible from the Git revision above, the declared project me
 
 ## Release Checkpoint
 
-Release record prepared from a clean Git working tree after deployment integration validation.
+Release record finalized from source revision `572234f` after deployment, security, regression, and clean-environment validation.
 
-Git revision: `9f2c9e1`
+Source revision: `572234f`
