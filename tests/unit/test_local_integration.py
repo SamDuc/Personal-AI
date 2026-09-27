@@ -120,3 +120,16 @@ def test_integration_propagates_unavailable_content_error(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="content"):
         integrate_local_content_index(item, extracted)
+
+def test_integration_preserves_utc_aware_indexed_at(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "notes.txt"
+    item = make_item(path)
+    extracted = make_extracted(path)
+
+    result = integrate_local_content_index(item, extracted)
+
+    assert result.indexed_at is not None
+    assert result.indexed_at.tzinfo is not None
+    assert result.indexed_at.utcoffset() is not None
