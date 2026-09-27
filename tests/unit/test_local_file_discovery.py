@@ -64,6 +64,8 @@ def test_discover_local_files_rejects_file_scope(tmp_path: Path):
 
     with pytest.raises(NotADirectoryError):
         discover_local_files(file_scope)
+
+
 def test_discover_local_files_collects_filesystem_metadata(tmp_path: Path):
     file_a = tmp_path / "paper.pdf"
     file_a.write_bytes(b"pdf-content")
@@ -79,3 +81,22 @@ def test_discover_local_files_collects_filesystem_metadata(tmp_path: Path):
     assert metadata.modified_at is not None
     assert metadata.created_at is not None
     assert metadata.mime_type == "application/pdf"
+
+
+def test_discover_local_files_returns_utc_aware_timestamps(
+    tmp_path: Path,
+) -> None:
+    file_a = tmp_path / "paper.pdf"
+    file_a.write_bytes(b"pdf-content")
+
+    result = discover_local_files(tmp_path)
+
+    metadata = result[0]
+
+    assert metadata.created_at is not None
+    assert metadata.created_at.tzinfo is not None
+    assert metadata.created_at.utcoffset() is not None
+
+    assert metadata.modified_at is not None
+    assert metadata.modified_at.tzinfo is not None
+    assert metadata.modified_at.utcoffset() is not None
