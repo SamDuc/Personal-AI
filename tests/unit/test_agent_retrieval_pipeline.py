@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from personal_ai.connectors.local_content_index import index_extracted_content
-from personal_ai.retrieval.local_integration import integrate_local_content_index
 from personal_ai.connectors.local_file_content_extraction import (
     extract_local_file_content,
 )
@@ -12,6 +10,7 @@ from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.llm import ChatMessage, LLMResponse
 from personal_ai.core.llm_integration import LLMIntegration
 from personal_ai.core.llm_runtime import LLMRuntime
+from personal_ai.retrieval.local_integration import integrate_local_content_index
 from personal_ai.retrieval.local_search import (
     LocalSearchRequest,
     SearchableContent,
