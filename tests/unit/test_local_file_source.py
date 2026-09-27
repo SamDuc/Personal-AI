@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from personal_ai.connectors.local_file_source import discover_enabled_local_files
 from personal_ai.sources.config import SourceConfig
 
@@ -35,3 +37,22 @@ def test_enabled_local_filesystem_source_discovers_files(
 
     assert len(results) == 1
     assert results[0].path == tmp_path / "example.txt"
+
+
+def test_enabled_local_filesystem_source_propagates_missing_scope_error(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "does-not-exist"
+
+    config = SourceConfig(
+        {
+            "sources": {
+                "local_filesystem": {
+                    "enabled": True,
+                }
+            }
+        }
+    )
+
+    with pytest.raises(FileNotFoundError):
+        discover_enabled_local_files(missing, config)
