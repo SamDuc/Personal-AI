@@ -175,3 +175,17 @@ def test_search_skips_unavailable_content(tmp_path: Path) -> None:
     )
 
     assert results == []
+
+def test_search_matches_content_case_insensitively(tmp_path: Path) -> None:
+    searchable = make_searchable_content(
+        tmp_path,
+        "Personal AI Raspberry Pi architecture",
+    )
+
+    results = search_local_content(
+        [searchable],
+        LocalSearchRequest(query="raspberry pi"),
+    )
+
+    assert len(results) == 1
+    assert results[0].item.id == searchable.item.id
