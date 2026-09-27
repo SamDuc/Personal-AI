@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from dataclasses import dataclass
@@ -7,6 +7,7 @@ from personal_ai.application.config import ApplicationConfig
 from personal_ai.application.local_retriever import create_local_retriever
 from personal_ai.application.paths import ApplicationPaths
 from personal_ai.core.agent import Agent
+from personal_ai.core.agent_router import AgentRoute, AgentRouter
 from personal_ai.core.llm_factory import create_llm_provider
 from personal_ai.core.llm_integration import LLMIntegration
 from personal_ai.core.llm_runtime import LLMRuntime
@@ -19,6 +20,7 @@ class ApplicationRuntime:
     config: ApplicationConfig
     permission_evaluator: PermissionEvaluator
     agent: Agent
+    agent_router: AgentRouter
 
 
 def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
@@ -43,9 +45,19 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         retriever=retriever,
     )
 
+    agent_router = AgentRouter(
+        [
+            AgentRoute(
+                route_id="general",
+                agent=agent,
+            ),
+        ]
+    )
+
     return ApplicationRuntime(
         paths=resolved_paths,
         config=config,
         permission_evaluator=permission_evaluator,
         agent=agent,
+        agent_router=agent_router,
     )

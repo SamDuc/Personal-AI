@@ -1,4 +1,4 @@
-﻿from personal_ai.application.bootstrap import bootstrap
+from personal_ai.application.bootstrap import bootstrap
 from personal_ai.application.paths import ApplicationPaths
 
 
@@ -40,3 +40,16 @@ def test_bootstrap_injects_local_retriever(tmp_path):
     )
 
     assert application.agent.retriever is not None
+
+def test_bootstrap_registers_general_agent_route(tmp_path):
+    from pathlib import Path
+
+    application = bootstrap(
+        ApplicationPaths(
+            config_dir=Path("config"),
+            data_dir=tmp_path / "data",
+        )
+    )
+
+    assert application.agent_router.route_ids == ("general",)
+    assert application.agent_router.resolve("general") is application.agent
