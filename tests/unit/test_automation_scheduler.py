@@ -171,3 +171,26 @@ def test_unregister_unknown_automation_is_safe():
     scheduler.unregister("missing")
 
     assert scheduler.automation_ids == ()
+
+def test_scheduler_does_not_record_failed_dispatch() -> None:
+    calls = []
+
+    def failing_dispatcher(route_id: str, request: str) -> object:
+        calls.append((route_id, request))
+        raise RuntimeError("dispatch failed")
+
+    scheduler = AutomationScheduler(failing_dispatcher)
+    scheduler.register(make_automation(interval_seconds=60))
+
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    with pytest.raises(RuntimeError, match="dispatch failed"):
+        scheduler.run_due(now)
+
+    with pytest.raises(RuntimeError, match="dispatch failed"):
+        scheduler.run_due(now)
+
+    assert calls == [
+        ("general", "Summarize my latest work."),
+        ("general", "Summarize my latest work."),
+    ]

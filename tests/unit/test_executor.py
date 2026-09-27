@@ -92,3 +92,20 @@ def test_executor_rejects_duplicate_capability_binding() -> None:
                 "respond": lambda value: f"replacement: {value}",
             }
         )
+
+def test_executor_propagates_capability_failure() -> None:
+    def failing_capability(value: object) -> object:
+        raise RuntimeError("capability failed")
+
+    executor = Executor({"failing": failing_capability})
+
+    plan = ExecutionPlan(
+        plan_id="plan-1",
+        original_request="request",
+        steps=(
+            PlanStep("step-1", "failing", "input"),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="capability failed"):
+        executor.execute(plan)

@@ -5,6 +5,8 @@ from personal_ai.core.evaluation import (
     EvaluationContract,
     EvaluationResult,
 )
+from personal_ai.permissions.evaluator import PermissionEvaluator
+from personal_ai.permissions.policy import PermissionPolicy
 
 
 def test_evaluation_passes_without_failures() -> None:
@@ -86,3 +88,35 @@ def test_evaluation_result_is_immutable() -> None:
 
     with pytest.raises(AttributeError):
         result.passed = False
+
+def test_passing_evaluation_does_not_grant_permission() -> None:
+    policy = PermissionPolicy(
+        {
+            "defaults": {
+                "local_filesystem": {
+                    "read": False,
+                },
+            },
+            "confirmation_required": [],
+        }
+    )
+    evaluator = PermissionEvaluator(policy)
+
+    before = evaluator.evaluate(
+        resource_category="local_filesystem",
+        operation="read",
+    )
+
+    result = EvaluationContract().evaluate(
+        evaluation_id="security-check",
+        checks=("permission-deny-by-default",),
+    )
+
+    after = evaluator.evaluate(
+        resource_category="local_filesystem",
+        operation="read",
+    )
+
+    assert result.passed is True
+    assert before == "denied"
+    assert after == "denied"
