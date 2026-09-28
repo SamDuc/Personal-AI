@@ -44,6 +44,7 @@ class OpenAICompatibleProvider(LLMProvider):
 
         headers = {
             "Content-Type": "application/json",
+            "User-Agent": "personal-ai/0.1.0",
         }
 
         if self._api_key_env is not None:
