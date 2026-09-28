@@ -58,6 +58,12 @@ class ProviderRegistry:
             model=selection.model,
         )
 
+    def profiles(self) -> tuple[ProviderProfile, ...]:
+        return tuple(
+            self.profile(provider_id)
+            for provider_id in self.provider_ids
+        )
+
     def resolve_adapter(self, provider_id: str) -> str:
         return self.selection(provider_id).adapter
 

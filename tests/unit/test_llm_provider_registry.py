@@ -2,7 +2,11 @@ import pytest
 
 from personal_ai.core.llm import LLMProvider
 from personal_ai.core.llm_config import validate_llm_provider_config
-from personal_ai.core.llm_provider_registry import ProviderRegistry, ProviderSelection
+from personal_ai.core.llm_provider_registry import (
+    ProviderProfile,
+    ProviderRegistry,
+    ProviderSelection,
+)
 
 
 def test_registry_lists_enabled_providers_only() -> None:
@@ -449,3 +453,119 @@ def test_registry_profile_rejects_disabled_provider() -> None:
 
     with pytest.raises(ValueError, match="Provider is disabled"):
         registry.profile("disabled")
+def test_registry_profiles_returns_enabled_profiles_in_config_order() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "first": {
+                    "enabled": True,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+                "disabled": {
+                    "enabled": False,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+                "second": {
+                    "enabled": True,
+                    "type": "cloud",
+                    "adapter": "openai_compatible",
+                    "base_url": "https://example.invalid/v1",
+                    "model": "example-model",
+                    "api_key_env": "TEST_API_KEY",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    assert registry.profiles() == (
+        ProviderProfile(
+            provider_id="first",
+            provider_type="local",
+            adapter="fake",
+            model=None,
+        ),
+        ProviderProfile(
+            provider_id="second",
+            provider_type="cloud",
+            adapter="openai_compatible",
+            model="example-model",
+        ),
+    )
+
+
+def test_registry_profiles_returns_empty_tuple_when_no_provider_is_enabled() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "disabled": {
+                    "enabled": False,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    assert registry.profiles() == ()
+
+
+def test_registry_profiles_do_not_expose_credentials() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "my_llm": {
+                    "enabled": True,
+                    "type": "cloud",
+                    "adapter": "openai_compatible",
+                    "base_url": "https://example.invalid/v1",
+                    "model": "example-model",
+                    "api_key_env": "TEST_API_KEY",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    profiles = registry.profiles()
+
+    assert len(profiles) == 1
+    assert not hasattr(profiles[0], "api_key")
+    assert not hasattr(profiles[0], "api_key_env")
+    assert not hasattr(profiles[0], "base_url")
+    assert "TEST_API_KEY" not in repr(profiles[0])
+
+
+def test_registry_profiles_do_not_mutate_configuration() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "fake": {
+                    "enabled": True,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    before = {
+        provider_id: dict(provider_config)
+        for provider_id, provider_config in config.providers.items()
+    }
+
+    registry = ProviderRegistry(config)
+
+    registry.profiles()
+
+    assert config.providers == before
