@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 from collections.abc import Callable
 from urllib import error, request
@@ -13,7 +13,7 @@ class OpenAICompatibleProvider(LLMProvider):
         model: str,
         api_key_env: str | None = None,
         timeout: float = 60.0,
-        urlopen: Callable[..., object] = request.urlopen,
+        urlopen: Callable[..., object] | None = None,
     ) -> None:
         if not base_url.strip():
             raise ValueError("base_url must be non-empty")
@@ -28,7 +28,7 @@ class OpenAICompatibleProvider(LLMProvider):
         self._model = model
         self._api_key_env = api_key_env
         self._timeout = timeout
-        self._urlopen = urlopen
+        self._urlopen = request.urlopen if urlopen is None else urlopen
 
     def generate(self, req: LLMRequest) -> LLMResponse:
         payload = {

@@ -33,7 +33,7 @@ def create_llm_provider(
         return OpenAICompatibleProvider(
             base_url=provider_config["base_url"],
             model=provider_config["model"],
-            api_key_env=provider_config["api_key_env"],
+            api_key_env=provider_config.get("api_key_env"),
         )
 
     raise ValueError(f"Unsupported provider adapter: {adapter}")
