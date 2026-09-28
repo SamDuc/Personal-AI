@@ -269,3 +269,87 @@ def test_registry_selection_does_not_expose_credentials() -> None:
     assert not hasattr(selection, "api_key")
     assert not hasattr(selection, "api_key_env")
     assert "TEST_API_KEY" not in repr(selection)
+
+def test_registry_resolves_fake_adapter() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "fake": {
+                    "enabled": True,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    assert registry.resolve_adapter("fake") == "fake"
+
+
+def test_registry_resolves_openai_compatible_adapter() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "my_llm": {
+                    "enabled": True,
+                    "type": "cloud",
+                    "adapter": "openai_compatible",
+                    "base_url": "https://example.invalid/v1",
+                    "model": "example-model",
+                    "api_key_env": "TEST_API_KEY",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    assert registry.resolve_adapter("my_llm") == "openai_compatible"
+
+
+def test_registry_resolve_adapter_rejects_unknown_provider() -> None:
+    import pytest
+
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "fake": {
+                    "enabled": True,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    with pytest.raises(ValueError, match="Unknown provider"):
+        registry.resolve_adapter("missing")
+
+
+def test_registry_resolve_adapter_rejects_disabled_provider() -> None:
+    import pytest
+
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "disabled": {
+                    "enabled": False,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    with pytest.raises(ValueError, match="Provider is disabled"):
+        registry.resolve_adapter("disabled")

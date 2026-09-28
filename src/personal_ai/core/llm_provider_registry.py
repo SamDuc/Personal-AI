@@ -39,6 +39,9 @@ class ProviderRegistry:
             model=provider_config.get("model"),
         )
 
+    def resolve_adapter(self, provider_id: str) -> str:
+        return self.selection(provider_id).adapter
+
     def create(self, provider_id: str) -> LLMProvider:
         self.selection(provider_id)
         return create_llm_provider(self._config, provider_id)
