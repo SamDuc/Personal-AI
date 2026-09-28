@@ -1,9 +1,10 @@
-from personal_ai.core.llm import (
+﻿from personal_ai.core.llm import (
     LLMProvider,
     LLMRequest,
     LLMResponse,
 )
 from personal_ai.core.llm_config import LLMProviderConfig
+from personal_ai.core.openai_compatible import OpenAICompatibleProvider
 
 
 class FakeLLMProvider(LLMProvider):
@@ -23,7 +24,16 @@ def create_llm_provider(
     if not provider_config["enabled"]:
         raise ValueError(f"Provider is disabled: {provider_id}")
 
-    if provider_id != "fake":
-        raise ValueError(f"Unsupported provider adapter: {provider_id}")
+    adapter = provider_config["adapter"]
 
-    return FakeLLMProvider()
+    if adapter == "fake":
+        return FakeLLMProvider()
+
+    if adapter == "openai_compatible":
+        return OpenAICompatibleProvider(
+            base_url=provider_config["base_url"],
+            model=provider_config["model"],
+            api_key_env=provider_config["api_key_env"],
+        )
+
+    raise ValueError(f"Unsupported provider adapter: {adapter}")
