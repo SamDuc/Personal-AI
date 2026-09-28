@@ -1,4 +1,5 @@
-﻿from pathlib import Path
+import os
+from pathlib import Path
 
 from personal_ai.application.bootstrap import bootstrap
 from personal_ai.application.paths import ApplicationPaths
@@ -13,8 +14,10 @@ DATA_DIR = Path("demo_runtime_data")
 
 
 def create_application():
+    config_dir = Path(os.environ.get("PERSONAL_AI_CONFIG_DIR", "config"))
+
     paths = ApplicationPaths(
-        config_dir=Path("config"),
+        config_dir=config_dir,
         data_dir=DATA_DIR,
     )
     return bootstrap(paths)
@@ -36,12 +39,20 @@ def normalize_command(value: str) -> str:
     return aliases.get(command, command)
 
 
-def print_banner(translator: Translator) -> None:
+def _provider_name(application) -> str:
+    return type(application.agent.integration.runtime.provider).__name__
+
+
+def _provider_id() -> str:
+    return os.environ.get("PERSONAL_AI_LLM_PROVIDER", "fake")
+
+
+def print_banner(translator: Translator, application) -> None:
     print()
     print("=" * 64)
     print(f" {translator('title')}")
     print("=" * 64)
-    print(f" {translator('provider')}: Fake LLM")
+    print(f" {translator('provider')}: {_provider_name(application)}")
     print(f" {translator('security')}: {translator('deny_by_default')}")
     print()
     print(f" {translator('commands')}")
@@ -60,13 +71,13 @@ def print_banner(translator: Translator) -> None:
 
 
 def show_config(application, translator: Translator) -> None:
-    fake_enabled = application.config.llm_config.providers["fake"]["enabled"]
+    provider_id = _provider_id()
 
     print()
     print(translator("runtime_configuration"))
     print("-" * 32)
-    print(f"{translator('fake_llm_enabled')}: {fake_enabled}")
-    print(f"{translator('provider_mode')}: fake")
+    print(f"{translator('provider_mode')}: {provider_id}")
+    print(f"{translator('provider')}: {_provider_name(application)}")
     print()
 
 
@@ -113,8 +124,13 @@ def run_self_test(application, translator: Translator) -> bool:
 
     checks = []
 
-    fake_enabled = application.config.llm_config.providers["fake"]["enabled"]
-    checks.append((translator("check_fake_llm"), fake_enabled))
+    provider = application.agent.integration.runtime.provider
+    checks.append(
+        (
+            translator("provider"),
+            provider is not None,
+        )
+    )
 
     permission = application.permission_evaluator.evaluate(
         "local_filesystem",
@@ -136,15 +152,10 @@ def run_self_test(application, translator: Translator) -> bool:
     checks.append(
         (
             translator("check_agent_response"),
-            isinstance(result, str),
+            isinstance(result, str) and bool(result.strip()),
         )
     )
-    checks.append(
-        (
-            translator("check_fake_response"),
-            result == "fake response",
-        )
-    )
+
     checks.append(
         (
             translator("check_assistant_message"),
@@ -200,7 +211,7 @@ def main() -> int:
     language = DEFAULT_LANGUAGE
     translator = Translator(language)
 
-    print_banner(translator)
+    print_banner(translator, application)
 
     while True:
         try:
@@ -220,7 +231,7 @@ def main() -> int:
             return 0
 
         if command == "help":
-            print_banner(translator)
+            print_banner(translator, application)
             continue
 
         if command == "security":
@@ -264,7 +275,7 @@ def main() -> int:
 
             print()
             print(translator("language_changed"))
-            print_banner(translator)
+            print_banner(translator, application)
             continue
 
         try:
