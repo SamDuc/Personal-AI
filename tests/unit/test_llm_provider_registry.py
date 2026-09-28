@@ -1,3 +1,5 @@
+import pytest
+
 from personal_ai.core.llm import LLMProvider
 from personal_ai.core.llm_config import validate_llm_provider_config
 from personal_ai.core.llm_provider_registry import ProviderRegistry, ProviderSelection
@@ -353,3 +355,97 @@ def test_registry_resolve_adapter_rejects_disabled_provider() -> None:
 
     with pytest.raises(ValueError, match="Provider is disabled"):
         registry.resolve_adapter("disabled")
+
+def test_registry_profile_exposes_safe_provider_metadata() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "my_llm": {
+                    "enabled": True,
+                    "type": "cloud",
+                    "adapter": "openai_compatible",
+                    "base_url": "https://example.invalid/v1",
+                    "model": "example-model",
+                    "api_key_env": "TEST_API_KEY",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    profile = registry.profile("my_llm")
+
+    assert profile.provider_id == "my_llm"
+    assert profile.provider_type == "cloud"
+    assert profile.adapter == "openai_compatible"
+    assert profile.model == "example-model"
+    assert not hasattr(profile, "api_key")
+    assert not hasattr(profile, "api_key_env")
+    assert not hasattr(profile, "base_url")
+    assert "TEST_API_KEY" not in repr(profile)
+
+
+def test_registry_profile_for_fake_provider_has_no_model() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "fake": {
+                    "enabled": True,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    profile = registry.profile("fake")
+
+    assert profile.provider_id == "fake"
+    assert profile.provider_type == "local"
+    assert profile.adapter == "fake"
+    assert profile.model is None
+
+
+def test_registry_profile_rejects_unknown_provider() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "fake": {
+                    "enabled": True,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    with pytest.raises(ValueError, match="Unknown provider"):
+        registry.profile("missing")
+
+
+def test_registry_profile_rejects_disabled_provider() -> None:
+    config = validate_llm_provider_config(
+        {
+            "version": 2,
+            "providers": {
+                "disabled": {
+                    "enabled": False,
+                    "type": "local",
+                    "adapter": "fake",
+                },
+            },
+        }
+    )
+
+    registry = ProviderRegistry(config)
+
+    with pytest.raises(ValueError, match="Provider is disabled"):
+        registry.profile("disabled")
