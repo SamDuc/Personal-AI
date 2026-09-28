@@ -4,7 +4,7 @@
 
 - Application: `personal-ai`
 - Version: `0.1.0`
-- Git revision: `572234f`
+- Git revision: `79ebb70`
 - Release type: initial local Python release
 - Deployment Contract: Version 1
 
@@ -41,27 +41,35 @@ Default deployment behavior remains deny-by-default. The local filesystem source
 
 ## Validation Results
 
-Validation completed before this release record:
+Final validation for release candidate `79ebb70`:
 
-- `python -m compileall -q src tests` — PASS
-- `python -m pytest -q` — 361 passed, 1 skipped
-- `ruff check .` — PASS
-- `python -m pip check` — PASS
-- `personal-ai` entry point — PASS
-- Deployment integration test — PASS
-- Clean-environment wheel installation validation — PASS
-- Release artifact content audit — PASS
-- Tracked sensitive-file audit — PASS
-- Tracked personal/local-path audit — PASS
+- `python -m compileall -q src tests` - PASS
+- `python -m pytest -q` - 390 passed, 1 skipped
+- `ruff check .` - PASS
+- `python -m pip check` - PASS
+- `git diff --check` - PASS
+- `personal-ai` entry point - PASS
+- Production wheel installation - PASS
+- Production installation is non-editable - PASS
+- External hybrid LLM configuration - PASS
+- OpenAI-compatible provider selection - PASS
+- Real LLM production smoke test - PASS
+- Release artifact content audit - PASS
+- Artifact SHA256 verification - PASS
+- Security acceptance - PASS
+- Working tree clean - PASS
 
+The real LLM production smoke test successfully used the configured OpenAI-compatible provider and returned a Vietnamese response through the production-installed package.
+
+Security acceptance confirmed that secrets are supplied through environment variables rather than committed configuration, production artifacts contain no detected secret/credential filenames, permission and filesystem security regression tests pass, and the production package remains installed non-editably from the release wheel.
 ## Release Artifacts
 
 Generated distribution artifacts:
 
 - `personal_ai-0.1.0-py3-none-any.whl`
-  - SHA256: `B29050B4353C3A7A9E736FA9DD10651BA78AE586E666A23D1A2F2E311C8383DD`
+  - SHA256: `E60A5DDDDC2AE866DD1E6A3A0B7354E8179B24E3154C236C24DCBEE8AC997159`
 - `personal_ai-0.1.0.tar.gz`
-  - SHA256: `F617EEF05CC9FFB389E33BB57D3F5C78289C3560309A81FCB9E3C01A0F337953`
+  - SHA256: `0A6C85C26886908665DB9DF9D69DDEA3F79A29326E630310525630A672018077`
 
 The generated `dist/` artifacts are release outputs and are not committed to Git.
 
@@ -75,6 +83,6 @@ The release is reproducible from the Git revision above, the declared project me
 
 ## Release Checkpoint
 
-Release record finalized from source revision `572234f` after deployment, security, regression, and clean-environment validation.
+Release record finalized from source revision `79ebb70` after deployment, security, regression, real-LLM, and clean-environment validation.
 
-Source revision: `572234f`
+Source revision: `79ebb70`
