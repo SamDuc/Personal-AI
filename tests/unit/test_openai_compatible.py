@@ -93,10 +93,15 @@ def test_generate_rejects_missing_api_key(monkeypatch) -> None:
         base_url="http://localhost:8000/v1",
         model="test-model",
         api_key_env="TEST_LLM_API_KEY",
-        urlopen=lambda *_args, **_kwargs: pytest.fail("HTTP request must not run"),
+        urlopen=lambda *_args, **_kwargs: pytest.fail(
+            "HTTP request must not run"
+        ),
     )
 
-    with pytest.raises(RuntimeError, match="API key environment variable is not set"):
+    with pytest.raises(
+        RuntimeError,
+        match="API key environment variable is not set",
+    ):
         provider.generate(LLMRequest(messages=[]))
 
 
@@ -137,10 +142,88 @@ def test_generate_rejects_invalid_json() -> None:
         ("http://localhost", "   "),
     ],
 )
-def test_invalid_configuration_is_rejected(base_url: str, model: str) -> None:
+def test_invalid_configuration_is_rejected(
+    base_url: str,
+    model: str,
+) -> None:
     with pytest.raises(ValueError):
         OpenAICompatibleProvider(
             base_url=base_url,
             model=model,
         )
 
+
+def test_generate_rejects_empty_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("TEST_LLM_API_KEY", "")
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        api_key_env="TEST_LLM_API_KEY",
+        urlopen=lambda *_args, **_kwargs: pytest.fail(
+            "HTTP request must not run"
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="API key environment variable is not set",
+    ):
+        provider.generate(LLMRequest(messages=[]))
+
+
+def test_generate_reads_api_key_at_request_time(monkeypatch) -> None:
+    captured = {}
+
+    def fake_urlopen(req, timeout):
+        captured["authorization"] = req.get_header("Authorization")
+        return FakeHTTPResponse(
+            b'{"choices":[{"message":{"content":"ok"}}]}'
+        )
+
+    monkeypatch.setenv("TEST_LLM_API_KEY", "first-key")
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        api_key_env="TEST_LLM_API_KEY",
+        urlopen=fake_urlopen,
+    )
+
+    monkeypatch.setenv("TEST_LLM_API_KEY", "second-key")
+
+    provider.generate(LLMRequest(messages=[]))
+
+    assert captured["authorization"] == "Bearer second-key"
+
+
+def test_provider_does_not_store_api_key_value(monkeypatch) -> None:
+    monkeypatch.setenv("TEST_LLM_API_KEY", "secret-value")
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        api_key_env="TEST_LLM_API_KEY",
+    )
+
+    assert "secret-value" not in repr(provider.__dict__)
+    assert provider.__dict__["_api_key_env"] == "TEST_LLM_API_KEY"
+
+
+def test_missing_api_key_error_does_not_contain_secret(monkeypatch) -> None:
+    monkeypatch.delenv("TEST_LLM_API_KEY", raising=False)
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        api_key_env="TEST_LLM_API_KEY",
+        urlopen=lambda *_args, **_kwargs: pytest.fail(
+            "HTTP request must not run"
+        ),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        provider.generate(LLMRequest(messages=[]))
+
+    assert "TEST_LLM_API_KEY" in str(exc_info.value)
+    assert "secret-value" not in str(exc_info.value)
