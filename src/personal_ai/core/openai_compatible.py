@@ -66,6 +66,10 @@ class OpenAICompatibleProvider(LLMProvider):
         try:
             with self._urlopen(http_request, timeout=self._timeout) as response:
                 raw = response.read()
+        except error.HTTPError as exc:
+            raise RuntimeError(
+                f"OpenAI-compatible provider request failed with HTTP {exc.code}"
+            ) from exc
         except error.URLError as exc:
             raise RuntimeError("OpenAI-compatible provider request failed") from exc
 

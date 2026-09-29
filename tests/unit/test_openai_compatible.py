@@ -227,3 +227,92 @@ def test_missing_api_key_error_does_not_contain_secret(monkeypatch) -> None:
 
     assert "TEST_LLM_API_KEY" in str(exc_info.value)
     assert "secret-value" not in str(exc_info.value)
+
+def test_generate_preserves_http_401_status() -> None:
+    from urllib.error import HTTPError
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            HTTPError(
+                url="http://localhost:8000/v1/chat/completions",
+                code=401,
+                msg="Unauthorized",
+                hdrs=None,
+                fp=None,
+            )
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="OpenAI-compatible provider request failed with HTTP 401",
+    ):
+        provider.generate(
+            LLMRequest(
+                messages=[
+                    ChatMessage(role="user", content="test"),
+                ]
+            )
+        )
+
+
+def test_generate_preserves_http_402_status() -> None:
+    from urllib.error import HTTPError
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            HTTPError(
+                url="http://localhost:8000/v1/chat/completions",
+                code=402,
+                msg="Payment Required",
+                hdrs=None,
+                fp=None,
+            )
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="OpenAI-compatible provider request failed with HTTP 402",
+    ):
+        provider.generate(
+            LLMRequest(
+                messages=[
+                    ChatMessage(role="user", content="test"),
+                ]
+            )
+        )
+
+
+def test_generate_preserves_http_429_status() -> None:
+    from urllib.error import HTTPError
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            HTTPError(
+                url="http://localhost:8000/v1/chat/completions",
+                code=429,
+                msg="Too Many Requests",
+                hdrs=None,
+                fp=None,
+            )
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="OpenAI-compatible provider request failed with HTTP 429",
+    ):
+        provider.generate(
+            LLMRequest(
+                messages=[
+                    ChatMessage(role="user", content="test"),
+                ]
+            )
+        )
