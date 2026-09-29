@@ -11,8 +11,9 @@ from personal_ai.core.agent_router import AgentRoute, AgentRouter
 from personal_ai.core.automation_scheduler import AutomationScheduler
 from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.executor import Executor
-from personal_ai.core.llm_factory import create_llm_provider
 from personal_ai.core.llm_integration import LLMIntegration
+from personal_ai.core.llm_provider_registry import ProviderRegistry
+from personal_ai.core.llm_provider_resolver import ProviderResolver
 from personal_ai.core.llm_runtime import LLMRuntime
 from personal_ai.core.planner import DeterministicPlanner
 from personal_ai.permissions.evaluator import PermissionEvaluator
@@ -35,7 +36,9 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     config = ApplicationConfig.from_paths(resolved_paths)
 
     provider_id = os.environ.get("PERSONAL_AI_LLM_PROVIDER", "fake")
-    provider = create_llm_provider(config.llm_config, provider_id)
+    provider_registry = ProviderRegistry(config.llm_config)
+    provider_resolver = ProviderResolver(provider_registry)
+    provider = provider_resolver.resolve(provider_id).provider
 
     runtime = LLMRuntime(provider)
     integration = LLMIntegration(runtime)
