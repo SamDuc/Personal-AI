@@ -316,3 +316,38 @@ def test_generate_preserves_http_429_status() -> None:
                 ]
             )
         )
+
+def test_generate_preserves_response_text_exactly() -> None:
+    def fake_urlopen(req, timeout):
+        return FakeHTTPResponse(
+            b'{"choices":[{"message":{"content":"  hello\\nworld  "}}]}'
+        )
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=fake_urlopen,
+    )
+
+    response = provider.generate(LLMRequest(messages=[]))
+
+    assert response.text == "  hello\nworld  "
+
+
+def test_generate_rejects_non_text_response_content() -> None:
+    def fake_urlopen(req, timeout):
+        return FakeHTTPResponse(
+            b'{"choices":[{"message":{"content":{"text":"hello"}}}]}'
+        )
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=fake_urlopen,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="response content must be text",
+    ):
+        provider.generate(LLMRequest(messages=[]))
