@@ -78,3 +78,31 @@ def test_router_rejects_non_string_request() -> None:
             user_request=123,
             session=ConversationSession(),
         )
+
+class FailingAgent:
+    def __init__(self, failure: Exception) -> None:
+        self.failure = failure
+
+    def run(
+        self,
+        user_request: str,
+        session: ConversationSession,
+    ) -> str:
+        raise self.failure
+
+
+def test_router_propagates_agent_failure_identity() -> None:
+    failure = RuntimeError("agent execution failed")
+    agent = FailingAgent(failure)
+    router = AgentRouter(
+        [AgentRoute(route_id="general", agent=agent)]
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        router.run(
+            route_id="general",
+            user_request="trigger failure",
+            session=ConversationSession(),
+        )
+
+    assert exc_info.value is failure
