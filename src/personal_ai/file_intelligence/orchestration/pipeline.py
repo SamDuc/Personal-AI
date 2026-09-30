@@ -1,8 +1,9 @@
-﻿"""File intelligence orchestration boundary."""
+"""File intelligence orchestration boundary."""
 
 from dataclasses import dataclass
 from pathlib import Path
 
+from personal_ai.file_intelligence.authorization import AuthorizationGate
 from personal_ai.file_intelligence.capability import (
     FileCapability,
     resolve_file_capability,
@@ -28,10 +29,15 @@ class FileIntelligenceResult:
 
 
 class FileIntelligenceOrchestrator:
-    """Compose existing file-intelligence boundaries."""
+    """Compose capability, authorization, extraction, and normalization."""
 
-    def __init__(self, extractor_registry: ExtractorRegistry) -> None:
+    def __init__(
+        self,
+        extractor_registry: ExtractorRegistry,
+        authorization_gate: AuthorizationGate,
+    ) -> None:
         self._extractor_registry = extractor_registry
+        self._authorization_gate = authorization_gate
 
     def process(
         self,
@@ -50,6 +56,18 @@ class FileIntelligenceOrchestrator:
         if not capability.extraction_supported:
             raise ValueError(
                 f"Unsupported file capability: {path}"
+            )
+
+        decision = self._authorization_gate.evaluate(
+            source_path=path,
+            capability=capability,
+            resource_category="local_filesystem",
+            operation="read",
+        )
+
+        if not decision.allowed:
+            raise PermissionError(
+                f"File authorization denied: {decision.reason}: {path}"
             )
 
         extractor_type = capability.extractor_type
