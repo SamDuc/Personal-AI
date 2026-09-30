@@ -1,3 +1,5 @@
+import pytest
+
 from personal_ai.core.llm import (
     ChatMessage,
     LLMProvider,
@@ -49,3 +51,21 @@ def test_runtime_returns_provider_response() -> None:
     )
 
     assert response.text == "controlled response"
+
+
+class FailingProvider(LLMProvider):
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        raise RuntimeError("provider failure")
+
+
+def test_runtime_propagates_provider_failure() -> None:
+    runtime = LLMRuntime(FailingProvider())
+
+    request = LLMRequest(
+        messages=[
+            ChatMessage(role="user", content="Hello"),
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="provider failure"):
+        runtime.generate(request)
