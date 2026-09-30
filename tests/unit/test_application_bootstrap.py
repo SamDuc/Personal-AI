@@ -100,3 +100,32 @@ def test_bootstrap_selects_configured_openai_compatible_provider(monkeypatch, tm
     from personal_ai.core.openai_compatible import OpenAICompatibleProvider
 
     assert isinstance(provider, OpenAICompatibleProvider)
+
+def test_bootstrap_resolves_execution_strategy(monkeypatch, tmp_path):
+    import personal_ai.application.bootstrap as bootstrap_module
+
+    calls = []
+
+    class SpyExecutionStrategyResolver:
+        def __init__(self, provider_resolver):
+            self.provider_resolver = provider_resolver
+
+        def resolve(self, provider_id):
+            calls.append(provider_id)
+            return "fake"
+
+    monkeypatch.setattr(
+        bootstrap_module,
+        "ExecutionStrategyResolver",
+        SpyExecutionStrategyResolver,
+        raising=False,
+    )
+
+    bootstrap(
+        ApplicationPaths(
+            config_dir=__import__("pathlib").Path("config"),
+            data_dir=tmp_path / "data",
+        )
+    )
+
+    assert calls == ["fake"]
