@@ -1,6 +1,7 @@
 ﻿from dataclasses import dataclass
 
 from personal_ai.core.llm import LLMProvider
+from personal_ai.core.llm_capability import LLMCapabilitySet
 from personal_ai.core.llm_provider_registry import ProviderProfile, ProviderRegistry
 
 
@@ -9,6 +10,7 @@ class ProviderResolution:
     provider_id: str
     adapter: str
     model: str | None
+    capabilities: LLMCapabilitySet
     provider: LLMProvider
 
 
@@ -24,5 +26,6 @@ class ProviderResolver:
             provider_id=profile.provider_id,
             adapter=profile.adapter,
             model=profile.model,
+            capabilities=profile.capabilities,
             provider=provider,
         )

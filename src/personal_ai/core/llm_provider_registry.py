@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from personal_ai.core.llm import LLMProvider
+from personal_ai.core.llm_capability import LLMCapability, LLMCapabilitySet
 from personal_ai.core.llm_config import LLMProviderConfig
 from personal_ai.core.llm_factory import create_llm_provider
 
@@ -18,6 +19,7 @@ class ProviderProfile:
     provider_type: str
     adapter: str
     model: str | None
+    capabilities: LLMCapabilitySet
 
 
 class ProviderRegistry:
@@ -56,6 +58,14 @@ class ProviderRegistry:
             provider_type=provider_config["type"],
             adapter=selection.adapter,
             model=selection.model,
+            capabilities=LLMCapabilitySet(
+                capabilities=frozenset(
+                    {
+                        LLMCapability.TEXT_INPUT,
+                        LLMCapability.TEXT_OUTPUT,
+                    }
+                )
+            ),
         )
 
     def profiles(self) -> tuple[ProviderProfile, ...]:

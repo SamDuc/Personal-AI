@@ -1,6 +1,10 @@
-import pytest
+﻿import pytest
 
 from personal_ai.core.llm import LLMProvider
+from personal_ai.core.llm_capability import (
+    LLMCapability,
+    LLMCapabilitySet,
+)
 from personal_ai.core.llm_config import validate_llm_provider_config
 from personal_ai.core.llm_provider_registry import (
     ProviderProfile,
@@ -385,6 +389,9 @@ def test_registry_profile_exposes_safe_provider_metadata() -> None:
     assert profile.provider_type == "cloud"
     assert profile.adapter == "openai_compatible"
     assert profile.model == "example-model"
+    assert isinstance(profile.capabilities, LLMCapabilitySet)
+    assert profile.capabilities.supports(LLMCapability.TEXT_INPUT)
+    assert profile.capabilities.supports(LLMCapability.TEXT_OUTPUT)
     assert not hasattr(profile, "api_key")
     assert not hasattr(profile, "api_key_env")
     assert not hasattr(profile, "base_url")
@@ -413,6 +420,9 @@ def test_registry_profile_for_fake_provider_has_no_model() -> None:
     assert profile.provider_type == "local"
     assert profile.adapter == "fake"
     assert profile.model is None
+    assert isinstance(profile.capabilities, LLMCapabilitySet)
+    assert profile.capabilities.supports(LLMCapability.TEXT_INPUT)
+    assert profile.capabilities.supports(LLMCapability.TEXT_OUTPUT)
 
 
 def test_registry_profile_rejects_unknown_provider() -> None:
@@ -488,12 +498,28 @@ def test_registry_profiles_returns_enabled_profiles_in_config_order() -> None:
             provider_type="local",
             adapter="fake",
             model=None,
+            capabilities=LLMCapabilitySet(
+                capabilities=frozenset(
+                    {
+                        LLMCapability.TEXT_INPUT,
+                        LLMCapability.TEXT_OUTPUT,
+                    }
+                )
+            ),
         ),
         ProviderProfile(
             provider_id="second",
             provider_type="cloud",
             adapter="openai_compatible",
             model="example-model",
+            capabilities=LLMCapabilitySet(
+                capabilities=frozenset(
+                    {
+                        LLMCapability.TEXT_INPUT,
+                        LLMCapability.TEXT_OUTPUT,
+                    }
+                )
+            ),
         ),
     )
 
