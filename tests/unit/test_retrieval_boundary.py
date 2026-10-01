@@ -31,6 +31,7 @@ def make_item(
         content_available=content_available,
         content_ref=content_ref,
         searchable=searchable,
+        sync_status="indexed",
         access_policy=AccessPolicy(
             read=read,
             write=False,

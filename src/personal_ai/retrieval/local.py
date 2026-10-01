@@ -38,6 +38,8 @@ def retrieve_local_items(
             continue
         if item.content_ref is None:
             continue
+        if item.sync_status != "indexed":
+            continue
         if not item.access_policy.read:
             continue
 
