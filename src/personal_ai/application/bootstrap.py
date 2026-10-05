@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from personal_ai.application.canonical_retriever import LocalCanonicalRetrieval
 from personal_ai.application.config import ApplicationConfig
-from personal_ai.application.local_retriever import create_local_retriever
 from personal_ai.application.paths import ApplicationPaths
 from personal_ai.core.agent import Agent
 from personal_ai.core.agent_router import AgentRoute, AgentRouter
@@ -48,7 +48,7 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     integration = LLMIntegration(runtime)
     permission_evaluator = PermissionEvaluator(config.permission_policy)
 
-    retriever = create_local_retriever(
+    retrieval = LocalCanonicalRetrieval(
         filesystem_scope=config.filesystem_scope,
         source_config=config.source_config,
         permission_evaluator=permission_evaluator,
@@ -59,7 +59,7 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
 
     agent = Agent(
         integration,
-        retriever=retriever,
+        retrieval=retrieval,
         planner=planner,
         executor=executor,
     )
