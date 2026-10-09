@@ -154,14 +154,14 @@ def test_refresh_associates_current_source_snapshot(
     assert result.item.source_modified_at == expected.modified_at
 
 
-def test_refresh_keeps_indexed_at_distinct_from_source_modified_at(
+def test_refresh_records_index_and_source_timestamps_separately(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "notes.txt"
     path.write_text("hello", encoding="utf-8")
 
     item = make_item(path)
-    refresh, _, _ = make_refresh(tmp_path)
+    refresh, _, index = make_refresh(tmp_path)
 
     result = refresh.refresh(
         item,
@@ -169,10 +169,15 @@ def test_refresh_keeps_indexed_at_distinct_from_source_modified_at(
         extension=".txt",
     )
 
-    assert result.item.indexed_at is not None
-    assert result.item.source_modified_at is not None
-    assert result.item.indexed_at != result.item.source_modified_at.isoformat()
+    indexed = index.get(str(path.resolve()))
 
+    assert indexed is not None
+    assert result.item.indexed_at == indexed.indexed_at
+    assert result.item.source_modified_at == result.source_snapshot.modified_at
+
+    indexed_at = datetime.fromisoformat(result.item.indexed_at)
+    assert indexed_at.tzinfo is not None
+    assert indexed_at.utcoffset() is not None
 
 def test_refresh_rejects_non_local_source(
     tmp_path: Path,
