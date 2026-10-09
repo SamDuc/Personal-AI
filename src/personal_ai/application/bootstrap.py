@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from personal_ai.application.canonical_content_access import (
+    LocalCanonicalContentAccess,
+)
 from personal_ai.application.canonical_retriever import LocalCanonicalRetrieval
 from personal_ai.application.config import ApplicationConfig
 from personal_ai.application.paths import ApplicationPaths
@@ -17,6 +20,7 @@ from personal_ai.core.llm_provider_registry import ProviderRegistry
 from personal_ai.core.llm_provider_resolver import ProviderResolver
 from personal_ai.core.llm_runtime import LLMRuntime
 from personal_ai.core.planner import DeterministicPlanner
+from personal_ai.file_intelligence.index import ContentIndex
 from personal_ai.permissions.evaluator import PermissionEvaluator
 
 
@@ -48,10 +52,18 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     integration = LLMIntegration(runtime)
     permission_evaluator = PermissionEvaluator(config.permission_policy)
 
+    content_index = ContentIndex()
     retrieval = LocalCanonicalRetrieval(
         filesystem_scope=config.filesystem_scope,
         source_config=config.source_config,
         permission_evaluator=permission_evaluator,
+        content_index=content_index,
+    )
+    content_access = LocalCanonicalContentAccess(
+        filesystem_scope=config.filesystem_scope,
+        source_config=config.source_config,
+        permission_evaluator=permission_evaluator,
+        content_index=content_index,
     )
 
     planner = DeterministicPlanner()
@@ -60,6 +72,7 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     agent = Agent(
         integration,
         retrieval=retrieval,
+        content_access=content_access,
         planner=planner,
         executor=executor,
     )

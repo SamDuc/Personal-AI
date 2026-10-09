@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -39,6 +39,7 @@ class LocalCanonicalRetrieval:
     filesystem_scope: FilesystemAccessScope
     source_config: SourceConfig
     permission_evaluator: PermissionEvaluator
+    content_index: ContentIndex | None = None
 
     def __post_init__(self) -> None:
         registry = ExtractorRegistry()
@@ -54,9 +55,12 @@ class LocalCanonicalRetrieval:
             authorization_gate=authorization_gate,
         )
 
+        if self.content_index is None:
+            self.content_index = ContentIndex()
+
         self._ingestion = LocalFileApplicationIngestion(
             orchestrator=orchestrator,
-            content_index=ContentIndex(),
+            content_index=self.content_index,
         )
 
     def retrieve(
