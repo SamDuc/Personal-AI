@@ -8,6 +8,10 @@ from personal_ai.file_intelligence.capability import (
     FileCapability,
     resolve_file_capability,
 )
+from personal_ai.file_intelligence.consistency import (
+    SourceSnapshot,
+    snapshot_local_file,
+)
 from personal_ai.file_intelligence.extractors.registry import (
     ExtractedContent,
     ExtractorRegistry,
@@ -26,6 +30,7 @@ class FileIntelligenceResult:
     capability: FileCapability
     extracted: ExtractedContent
     normalized: NormalizedContent
+    source_snapshot: SourceSnapshot
 
 
 class FileIntelligenceOrchestrator:
@@ -82,7 +87,15 @@ class FileIntelligenceOrchestrator:
                 f"No extractor registered for type: {extractor_type}"
             )
 
+        # Snapshot only after authorization and before extraction.
+        source_snapshot_before = snapshot_local_file(path)
         extracted = extractor.extract(str(path))
+        source_snapshot_after = snapshot_local_file(path)
+
+        if source_snapshot_before != source_snapshot_after:
+            raise RuntimeError(
+                f"Source file changed during extraction: {path}"
+            )
 
         normalized = normalize_extracted_content(
             source_path=extracted.source_path,
@@ -97,4 +110,5 @@ class FileIntelligenceOrchestrator:
             capability=capability,
             extracted=extracted,
             normalized=normalized,
+            source_snapshot=source_snapshot_after,
         )

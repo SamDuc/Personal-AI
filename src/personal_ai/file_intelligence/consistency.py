@@ -10,6 +10,9 @@ class SourceSnapshot:
     source: str
     source_id: str
     modified_at: datetime
+    size: int | None = None
+    modified_at_ns: int | None = None
+    changed_at_ns: int | None = None
 
 
 def snapshot_local_file(source_path: str | Path) -> SourceSnapshot:
@@ -28,4 +31,7 @@ def snapshot_local_file(source_path: str | Path) -> SourceSnapshot:
         source="local_filesystem",
         source_id=str(path.resolve()),
         modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+        size=stat.st_size,
+        modified_at_ns=stat.st_mtime_ns,
+        changed_at_ns=stat.st_ctime_ns,
     )

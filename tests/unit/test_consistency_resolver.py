@@ -1,7 +1,10 @@
-﻿from datetime import UTC, datetime
+﻿from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from personal_ai.file_intelligence.consistency import SourceSnapshot
+from personal_ai.file_intelligence.consistency import (
+    SourceSnapshot,
+    snapshot_local_file,
+)
 from personal_ai.file_intelligence.consistency_resolver import (
     CONSISTENT,
     OUT_OF_SYNC,
@@ -27,14 +30,7 @@ def test_consistent_when_source_snapshot_matches(tmp_path: Path):
     source = tmp_path / "sample.txt"
     source.write_text("hello", encoding="utf-8")
 
-    snapshot = SourceSnapshot(
-        source="local_filesystem",
-        source_id=str(source.resolve()),
-        modified_at=datetime.fromtimestamp(
-            source.stat().st_mtime,
-            tz=UTC,
-        ),
-    )
+    snapshot = snapshot_local_file(source)
 
     result = ConsistencyResolver().resolve(
         _indexed(source),
@@ -49,20 +45,11 @@ def test_out_of_sync_when_source_modified_at_differs(tmp_path: Path):
     source = tmp_path / "sample.txt"
     source.write_text("hello", encoding="utf-8")
 
-    snapshot = SourceSnapshot(
-        source="local_filesystem",
-        source_id=str(source.resolve()),
-        modified_at=datetime.fromtimestamp(
-            source.stat().st_mtime,
-            tz=UTC,
-        ),
-    )
+    snapshot = snapshot_local_file(source)
 
     result = ConsistencyResolver().resolve(
         _indexed(source),
-        indexed_source_modified_at=snapshot.modified_at.replace(
-            microsecond=max(snapshot.modified_at.microsecond - 1, 0)
-        ),
+        indexed_source_modified_at=snapshot.modified_at - timedelta(seconds=1),
     )
 
     assert result.state == OUT_OF_SYNC
