@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import pytest
+
 from personal_ai.core.agent import Agent
 from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.llm import LLMResponse
@@ -100,3 +102,76 @@ def test_agent_receives_canonical_retrieval_results():
     assert item.source == "local_filesystem"
     assert item.content_ref == "index://content/abc"
     assert item.sync_status == "indexed"
+
+
+def test_agent_propagates_canonical_retrieval_failure():
+    runtime = RecordingRuntime()
+
+    class FailingRetrieval:
+        def retrieve(self, request: RetrievalRequest) -> list[RetrievalResult]:
+            raise RuntimeError("canonical retrieval failed")
+
+    agent = Agent(
+        LLMIntegration(runtime),
+        retrieval=FailingRetrieval(),
+    )
+
+    session = ConversationSession()
+
+    with pytest.raises(
+        RuntimeError,
+        match="canonical retrieval failed",
+    ):
+        agent.run("find notes", session)
+
+    assert runtime.request is None
+
+
+def test_agent_does_not_mutate_item_access_policy():
+    runtime = RecordingRuntime()
+    item = make_item()
+    item.access_policy.read = True
+    item.access_policy.write = False
+
+    original_policy = (
+        item.access_policy.read,
+        item.access_policy.write,
+    )
+
+    retrieval = RecordingRetrieval(
+        requests=[],
+        results=[RetrievalResult(item=item)],
+    )
+
+    agent = Agent(
+        LLMIntegration(runtime),
+        retrieval=retrieval,
+    )
+
+    agent.run("find notes", ConversationSession())
+
+    assert (
+        item.access_policy.read,
+        item.access_policy.write,
+    ) == original_policy
+def test_agent_rejects_both_canonical_and_legacy_retrievers():
+    runtime = RecordingRuntime()
+
+    class LegacyRetriever:
+        def __call__(self, query: str) -> list[str]:
+            return ["legacy content"]
+
+    retrieval = RecordingRetrieval(
+        requests=[],
+        results=[],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="cannot configure both canonical and legacy retrieval",
+    ):
+        Agent(
+            LLMIntegration(runtime),
+            retriever=LegacyRetriever(),
+            retrieval=retrieval,
+        )

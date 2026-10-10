@@ -44,6 +44,11 @@ class Agent:
         if (planner is None) != (executor is None):
             raise ValueError("planner and executor must be provided together")
 
+        if retriever is not None and retrieval is not None:
+            raise ValueError(
+                "cannot configure both canonical and legacy retrieval"
+            )
+
         self.integration = integration
         self.retriever = retriever
         self.planner = planner
