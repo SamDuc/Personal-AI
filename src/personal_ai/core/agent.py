@@ -11,6 +11,7 @@ from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.retrieval.local import RetrievalRequest, RetrievalResult
 from personal_ai.tools.executor import ToolExecutor
 from personal_ai.tools.model import ToolResult
+from personal_ai.tools.registry import ToolRegistry
 from personal_ai.tools.tool import Tool
 
 
@@ -40,6 +41,8 @@ class Agent:
         executor: Executor | None = None,
         retrieval: RetrievalCapability | None = None,
         content_access: ContentAccessCapability | None = None,
+        tool_registry: ToolRegistry | None = None,
+        tool_executor: ToolExecutor | None = None,
     ) -> None:
         if (planner is None) != (executor is None):
             raise ValueError("planner and executor must be provided together")
@@ -55,6 +58,8 @@ class Agent:
         self.executor = executor
         self.retrieval = retrieval
         self.content_access = content_access
+        self.tool_registry = tool_registry or ToolRegistry()
+        self.tool_executor = tool_executor or ToolExecutor()
 
     def run(
         self,
@@ -183,6 +188,23 @@ class Agent:
             ChatMessage(role="assistant", content=response.text)
         )
         return response.text
+
+    def execute_registered_tool(
+        self,
+        name: str,
+        input_data: object,
+        permission_evaluator: PermissionEvaluator,
+    ) -> ToolResult:
+        """Execute a registered tool through the permission gate."""
+        tool = self.tool_registry.get(name)
+        if tool is None:
+            raise ValueError(f"tool is not registered: {name}")
+        return self.execute_tool(
+            tool=tool,
+            executor=self.tool_executor,
+            input_data=input_data,
+            permission_evaluator=permission_evaluator,
+        )
 
     def execute_tool(
         self,

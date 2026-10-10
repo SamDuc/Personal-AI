@@ -8,6 +8,78 @@ from personal_ai.tools.executor import ToolExecutor
 from personal_ai.tools.local_file_read import LocalFileReadTool
 
 
+def test_agent_executes_registered_tool_when_allowed(tmp_path: Path):
+    target = tmp_path / "registered.txt"
+    target.write_text("Registered tool works.", encoding="utf-8")
+
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([tmp_path]),
+    )
+    from personal_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry()
+    registry.register(tool)
+    agent = Agent(
+        integration=None,  # type: ignore[arg-type]
+        tool_registry=registry,
+    )
+
+    result = agent.execute_registered_tool(
+        name="local_file_read",
+        input_data=str(target),
+        permission_evaluator=make_evaluator(read=True),
+    )
+
+    assert result.status == "success"
+    assert result.result == "Registered tool works."
+
+
+def test_agent_rejects_unregistered_tool():
+    import pytest
+
+    from personal_ai.tools.registry import ToolRegistry
+
+    agent = Agent(
+        integration=None,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+    )
+
+    with pytest.raises(ValueError, match="tool is not registered"):
+        agent.execute_registered_tool(
+            name="missing",
+            input_data="unused",
+            permission_evaluator=make_evaluator(read=True),
+        )
+
+
+def test_agent_does_not_execute_registered_tool_when_denied(
+    tmp_path: Path,
+):
+    target = tmp_path / "denied.txt"
+    target.write_text("Must not be returned.", encoding="utf-8")
+
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([tmp_path]),
+    )
+    from personal_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry()
+    registry.register(tool)
+    agent = Agent(
+        integration=None,  # type: ignore[arg-type]
+        tool_registry=registry,
+    )
+
+    result = agent.execute_registered_tool(
+        name="local_file_read",
+        input_data=str(target),
+        permission_evaluator=make_evaluator(read=False),
+    )
+
+    assert result.status == "denied"
+    assert result.result is None
+
+
 def make_evaluator(read: bool) -> PermissionEvaluator:
     return PermissionEvaluator(
         PermissionPolicy(

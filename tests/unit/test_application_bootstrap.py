@@ -136,3 +136,23 @@ def test_bootstrap_resolves_execution_strategy(monkeypatch, tmp_path):
     )
 
     assert calls == ["fake"]
+
+
+def test_bootstrap_shares_tool_registry_and_executor_with_agent(tmp_path):
+    from pathlib import Path
+
+    from personal_ai.tools.executor import ToolExecutor
+    from personal_ai.tools.registry import ToolRegistry
+
+    application = bootstrap(
+        ApplicationPaths(
+            config_dir=Path("config"),
+            data_dir=tmp_path / "data",
+        )
+    )
+
+    assert isinstance(application.tool_registry, ToolRegistry)
+    assert isinstance(application.tool_executor, ToolExecutor)
+    assert application.agent.tool_registry is application.tool_registry
+    assert application.agent.tool_executor is application.tool_executor
+    assert application.tool_registry.tool_names == ()

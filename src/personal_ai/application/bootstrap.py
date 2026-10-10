@@ -22,6 +22,8 @@ from personal_ai.core.llm_runtime import LLMRuntime
 from personal_ai.core.planner import DeterministicPlanner
 from personal_ai.file_intelligence.index import ContentIndex
 from personal_ai.permissions.evaluator import PermissionEvaluator
+from personal_ai.tools.executor import ToolExecutor
+from personal_ai.tools.registry import ToolRegistry
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ class ApplicationRuntime:
     paths: ApplicationPaths
     config: ApplicationConfig
     permission_evaluator: PermissionEvaluator
+    tool_registry: ToolRegistry
+    tool_executor: ToolExecutor
     planner: DeterministicPlanner
     executor: Executor
     agent: Agent
@@ -70,12 +74,17 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     planner = DeterministicPlanner()
     executor = Executor({})
 
+    tool_registry = ToolRegistry()
+    tool_executor = ToolExecutor()
+
     agent = Agent(
         integration,
         retrieval=retrieval,
         content_access=content_access,
         planner=planner,
         executor=executor,
+        tool_registry=tool_registry,
+        tool_executor=tool_executor,
     )
 
     agent_router = AgentRouter(
@@ -105,6 +114,8 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         paths=resolved_paths,
         config=config,
         permission_evaluator=permission_evaluator,
+        tool_registry=tool_registry,
+        tool_executor=tool_executor,
         planner=planner,
         executor=executor,
         agent=agent,
