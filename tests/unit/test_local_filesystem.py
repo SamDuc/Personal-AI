@@ -7,19 +7,21 @@ from personal_ai.connectors.local_filesystem import (
 )
 
 
-def test_local_file_to_data_item_maps_basic_identity():
+def test_local_file_to_data_item_maps_basic_identity(tmp_path):
+    path = tmp_path / "paper.pdf"
     metadata = LocalFileMetadata(
-        path=Path(r"C:\Projects\paper.pdf"),
+        path=path,
         size=123456,
         mime_type="application/pdf",
     )
 
     item = local_file_to_data_item(metadata)
+    resolved = path.resolve()
 
-    assert item.id == r"local:C:\Projects\paper.pdf"
+    assert item.id == f"local:{resolved}"
     assert item.source == "local_filesystem"
-    assert item.source_id == r"C:\Projects\paper.pdf"
-    assert item.uri == "file:///C:/Projects/paper.pdf"
+    assert item.source_id == str(resolved)
+    assert item.uri == resolved.as_uri()
     assert item.item_type == "file"
     assert item.name == "paper.pdf"
     assert item.extension == ".pdf"
@@ -60,10 +62,8 @@ def test_local_file_mapping_starts_read_only_and_not_searchable():
     assert item.embedding_ref is None
 
 
-def test_local_file_mapping_handles_files_without_extension():
-    metadata = LocalFileMetadata(
-        path=Path(r"C:\Projects\README"),
-    )
+def test_local_file_mapping_handles_files_without_extension(tmp_path):
+    metadata = LocalFileMetadata(path=tmp_path / "README")
 
     item = local_file_to_data_item(metadata)
 

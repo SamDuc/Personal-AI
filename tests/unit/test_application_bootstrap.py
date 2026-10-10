@@ -31,7 +31,11 @@ def test_bootstrap_rejects_unknown_provider(monkeypatch):
         raise AssertionError("Expected unknown provider to fail")
 
 
-def test_bootstrap_injects_local_retriever(tmp_path):
+def test_bootstrap_injects_canonical_retrieval(tmp_path):
+    from personal_ai.application.canonical_retriever import (
+        LocalCanonicalRetrieval,
+    )
+
     application = bootstrap(
         ApplicationPaths(
             config_dir=__import__("pathlib").Path("config"),
@@ -39,7 +43,10 @@ def test_bootstrap_injects_local_retriever(tmp_path):
         )
     )
 
-    assert application.agent.retriever is not None
+    assert isinstance(
+        application.agent.retrieval,
+        LocalCanonicalRetrieval,
+    )
 
 def test_bootstrap_registers_general_agent_route(tmp_path):
     from pathlib import Path

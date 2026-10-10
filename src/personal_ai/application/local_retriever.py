@@ -2,15 +2,23 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from personal_ai.connectors.local_file_content_extraction import (
-    extract_local_file_content,
+from personal_ai.application.file_intelligence import (
+    LocalFileApplicationIngestion,
 )
 from personal_ai.connectors.local_file_source import discover_enabled_local_files
 from personal_ai.connectors.local_filesystem import local_file_to_data_item
 from personal_ai.core.models import AccessPolicy
+from personal_ai.file_intelligence.authorization import AuthorizationGate
+from personal_ai.file_intelligence.extractors import (
+    ExtractorRegistry,
+    TextFileExtractor,
+)
+from personal_ai.file_intelligence.index import ContentIndex
+from personal_ai.file_intelligence.orchestration import (
+    FileIntelligenceOrchestrator,
+)
 from personal_ai.filesystem.scope import FilesystemAccessScope
 from personal_ai.permissions.evaluator import PermissionEvaluator
-from personal_ai.retrieval.local_integration import integrate_local_content_index
 from personal_ai.retrieval.local_search import (
     LocalSearchRequest,
     SearchableContent,
@@ -25,6 +33,24 @@ def create_local_retriever(
     source_config: SourceConfig,
     permission_evaluator: PermissionEvaluator,
 ) -> Callable[[str], list[str]]:
+    registry = ExtractorRegistry()
+    registry.register(TextFileExtractor())
+
+    authorization_gate = AuthorizationGate(
+        filesystem_scope=filesystem_scope,
+        permission_evaluator=permission_evaluator,
+    )
+
+    orchestrator = FileIntelligenceOrchestrator(
+        extractor_registry=registry,
+        authorization_gate=authorization_gate,
+    )
+
+    ingestion = LocalFileApplicationIngestion(
+        orchestrator=orchestrator,
+        content_index=ContentIndex(),
+    )
+
     def retrieve(query: str) -> list[str]:
         if not filesystem_scope.authorized_roots:
             return []
@@ -60,20 +86,16 @@ def create_local_retriever(
                     write=False,
                 )
 
-                extracted = extract_local_file_content(metadata.path)
-
-                if not extracted.content_available:
-                    continue
-
-                integrate_local_content_index(
+                result = ingestion.ingest(
                     item,
-                    extracted,
+                    mime_type=metadata.mime_type,
+                    extension=metadata.path.suffix,
                 )
 
                 searchable_contents.append(
                     SearchableContent(
-                        item=item,
-                        text=extracted.text,
+                        item=result.item,
+                        text=result.normalized.text,
                     )
                 )
 

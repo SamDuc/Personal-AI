@@ -3,8 +3,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from personal_ai.application.canonical_content_access import (
+    LocalCanonicalContentAccess,
+)
+from personal_ai.application.canonical_retriever import LocalCanonicalRetrieval
 from personal_ai.application.config import ApplicationConfig
-from personal_ai.application.local_retriever import create_local_retriever
 from personal_ai.application.paths import ApplicationPaths
 from personal_ai.core.agent import Agent
 from personal_ai.core.agent_router import AgentRoute, AgentRouter
@@ -17,6 +20,7 @@ from personal_ai.core.llm_provider_registry import ProviderRegistry
 from personal_ai.core.llm_provider_resolver import ProviderResolver
 from personal_ai.core.llm_runtime import LLMRuntime
 from personal_ai.core.planner import DeterministicPlanner
+from personal_ai.file_intelligence.index import ContentIndex
 from personal_ai.permissions.evaluator import PermissionEvaluator
 
 
@@ -28,6 +32,7 @@ class ApplicationRuntime:
     planner: DeterministicPlanner
     executor: Executor
     agent: Agent
+    retrieval: LocalCanonicalRetrieval
     agent_router: AgentRouter
     automation_scheduler: AutomationScheduler
 
@@ -48,10 +53,18 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     integration = LLMIntegration(runtime)
     permission_evaluator = PermissionEvaluator(config.permission_policy)
 
-    retriever = create_local_retriever(
+    content_index = ContentIndex()
+    retrieval = LocalCanonicalRetrieval(
         filesystem_scope=config.filesystem_scope,
         source_config=config.source_config,
         permission_evaluator=permission_evaluator,
+        content_index=content_index,
+    )
+    content_access = LocalCanonicalContentAccess(
+        filesystem_scope=config.filesystem_scope,
+        source_config=config.source_config,
+        permission_evaluator=permission_evaluator,
+        content_index=content_index,
     )
 
     planner = DeterministicPlanner()
@@ -59,7 +72,8 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
 
     agent = Agent(
         integration,
-        retriever=retriever,
+        retrieval=retrieval,
+        content_access=content_access,
         planner=planner,
         executor=executor,
     )
@@ -94,6 +108,7 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         planner=planner,
         executor=executor,
         agent=agent,
+        retrieval=retrieval,
         agent_router=agent_router,
         automation_scheduler=automation_scheduler,
     )
