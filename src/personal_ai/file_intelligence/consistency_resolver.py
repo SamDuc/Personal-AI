@@ -49,7 +49,7 @@ class ConsistencyResolver:
                 state=SOURCE_MISSING,
                 source_snapshot=None,
             )
-        except (PermissionError, OSError):
+        except (PermissionError, OSError, UnicodeError):
             return ConsistencyResult(
                 state=SOURCE_UNAVAILABLE,
                 source_snapshot=None,
@@ -59,6 +59,15 @@ class ConsistencyResolver:
         if indexed_source != snapshot.source_id:
             raise ValueError(
                 "Indexed content source does not match source snapshot"
+            )
+
+        if (
+            snapshot.content_hash is not None
+            and indexed.content_hash != snapshot.content_hash
+        ):
+            return ConsistencyResult(
+                state=OUT_OF_SYNC,
+                source_snapshot=snapshot,
             )
 
         if indexed_source_modified_at == snapshot.modified_at:

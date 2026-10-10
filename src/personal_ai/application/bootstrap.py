@@ -32,6 +32,7 @@ class ApplicationRuntime:
     planner: DeterministicPlanner
     executor: Executor
     agent: Agent
+    retrieval: LocalCanonicalRetrieval
     agent_router: AgentRouter
     automation_scheduler: AutomationScheduler
 
@@ -107,6 +108,7 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         planner=planner,
         executor=executor,
         agent=agent,
+        retrieval=retrieval,
         agent_router=agent_router,
         automation_scheduler=automation_scheduler,
     )

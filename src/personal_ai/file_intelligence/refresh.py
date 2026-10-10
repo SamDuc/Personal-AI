@@ -92,7 +92,7 @@ class LocalFileRefresh:
         except Exception as refresh_error:
             try:
                 self._content_index.restore_source_state(index_state)
-            except Exception as rollback_error:
+            except Exception as rollback_error:  # noqa: BLE001
                 raise ExceptionGroup(
                     "Refresh failed and index rollback also failed",
                     [refresh_error, rollback_error],
