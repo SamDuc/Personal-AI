@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 
 from personal_ai.connectors.local_file_source import discover_enabled_local_files
@@ -85,51 +86,69 @@ class LocalCanonicalRetrieval:
         ):
             return 0
 
+        candidates = []
+        for root in self.filesystem_scope.authorized_roots:
+            metadata_items = discover_enabled_local_files(
+                root,
+                self.source_config,
+            )
+            for metadata in metadata_items:
+                if not self.filesystem_scope.is_allowed(metadata.path):
+                    continue
+
+                item = local_file_to_data_item(metadata)
+                item.access_policy = AccessPolicy(read=True, write=False)
+                candidates.append((metadata, item))
+
+        if not candidates:
+            self._catalog = {}
+            return 0
+
+        source_paths = sorted(
+            {item.source_id for _, item in candidates},
+            key=lambda value: str(value).casefold(),
+        )
         refreshed: dict[str, DataItem] = {}
         previous_states = {}
 
-        try:
-            for root in self.filesystem_scope.authorized_roots:
-                metadata_items = discover_enabled_local_files(
-                    root,
-                    self.source_config,
+        with ExitStack() as lock_stack:
+            for source_path in source_paths:
+                lock_stack.enter_context(
+                    self.content_index.lock_source(source_path)
                 )
-                for metadata in metadata_items:
-                    if not self.filesystem_scope.is_allowed(metadata.path):
-                        continue
 
-                    item = local_file_to_data_item(metadata)
-                    item.access_policy = AccessPolicy(read=True, write=False)
+            for source_path in source_paths:
+                previous_states[source_path] = (
+                    self.content_index.capture_source_state(source_path)
+                )
 
-                    source_path = item.source_id
-                    if source_path not in previous_states:
-                        previous_states[source_path] = (
-                            self.content_index.capture_source_state(source_path)
-                        )
-
+            try:
+                for metadata, item in candidates:
                     result = self._refresh_service.refresh(
                         item,
                         mime_type=metadata.mime_type,
                         extension=metadata.path.suffix,
                     )
                     refreshed[result.item.id] = result.item
-        except Exception as refresh_error:
-            rollback_errors = []
+            except Exception as refresh_error:
+                rollback_errors = []
 
-            for source_path, state in reversed(list(previous_states.items())):
-                try:
-                    self.content_index.restore_source_state(state)
-                except Exception as rollback_error:  # noqa: BLE001
-                    rollback_errors.append(rollback_error)
+                for source_path in reversed(source_paths):
+                    try:
+                        self.content_index.restore_source_state(
+                            previous_states[source_path]
+                        )
+                    except Exception as rollback_error:  # noqa: BLE001
+                        rollback_errors.append(rollback_error)
 
-            if rollback_errors:
-                self._catalog = {}
-                raise ExceptionGroup(
-                    "Batch refresh failed and index rollback also failed",
-                    [refresh_error, *rollback_errors],
-                ) from None
+                if rollback_errors:
+                    self._catalog = {}
+                    raise ExceptionGroup(
+                        "Batch refresh failed and index rollback also failed",
+                        [refresh_error, *rollback_errors],
+                    ) from None
 
-            raise
+                raise
 
         self._catalog = refreshed
         return len(refreshed)
