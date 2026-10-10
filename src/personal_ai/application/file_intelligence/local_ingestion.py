@@ -46,27 +46,28 @@ class LocalFileApplicationIngestion:
                 "DataItem source must be local_filesystem"
             )
 
-        result = self._orchestrator.process(
-            source_path=item.source_id,
-            mime_type=mime_type,
-            extension=extension,
-        )
+        # Serialize ingestion against refresh for the same source.
+        with self._content_index.lock_source(item.source_id):
+            result = self._orchestrator.process(
+                source_path=item.source_id,
+                mime_type=mime_type,
+                extension=extension,
+            )
 
-        content_ref = (
-            f"index://content/{result.normalized.content_hash}"
-        )
+            content_ref = (
+                f"index://content/{result.normalized.content_hash}"
+            )
+            indexed_at = datetime.now(UTC).isoformat()
 
-        indexed_at = datetime.now(UTC).isoformat()
+            integrated_item = integrate_normalized_content(
+                item,
+                result.normalized,
+                self._content_index,
+                content_ref=content_ref,
+                indexed_at=indexed_at,
+            )
 
-        integrated_item = integrate_normalized_content(
-            item,
-            result.normalized,
-            self._content_index,
-            content_ref=content_ref,
-            indexed_at=indexed_at,
-        )
-
-        return ApplicationIngestionResult(
-            item=integrated_item,
-            normalized=result.normalized,
-        )
+            return ApplicationIngestionResult(
+                item=integrated_item,
+                normalized=result.normalized,
+            )
