@@ -155,4 +155,33 @@ def test_bootstrap_shares_tool_registry_and_executor_with_agent(tmp_path):
     assert isinstance(application.tool_executor, ToolExecutor)
     assert application.agent.tool_registry is application.tool_registry
     assert application.agent.tool_executor is application.tool_executor
-    assert application.tool_registry.tool_names == ()
+    assert application.tool_registry.tool_names == ("local_file_read",)
+
+
+def test_bootstrap_registers_local_file_read_tool_without_granting_access(tmp_path):
+    from pathlib import Path
+
+    application = bootstrap(
+        ApplicationPaths(
+            config_dir=Path("config"),
+            data_dir=tmp_path / "data",
+        )
+    )
+
+    assert "local_file_read" in application.tool_registry.tool_names
+    assert application.config.filesystem_scope.authorized_roots == ()
+    assert (
+        application.permission_evaluator.evaluate(
+            "local_filesystem", "read"
+        )
+        == "denied"
+    )
+
+    result = application.agent.execute_registered_tool(
+        name="local_file_read",
+        input_data=str(tmp_path / "private.txt"),
+        permission_evaluator=application.permission_evaluator,
+    )
+
+    assert result.status == "denied"
+    assert result.result is None

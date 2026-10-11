@@ -5,6 +5,7 @@ from enum import Enum
 class LLMCapability(str, Enum):
     TEXT_INPUT = "text_input"
     TEXT_OUTPUT = "text_output"
+    TOOL_CALLING = "tool_calling"
 
 
 @dataclass(frozen=True)

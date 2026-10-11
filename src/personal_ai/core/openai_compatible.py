@@ -3,7 +3,7 @@ import os
 from collections.abc import Callable
 from urllib import error, request
 
-from personal_ai.core.llm import LLMProvider, LLMRequest, LLMResponse
+from personal_ai.core.llm import LLMProvider, LLMRequest, LLMResponse, LLMToolCall
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -30,17 +30,52 @@ class OpenAICompatibleProvider(LLMProvider):
         self._timeout = timeout
         self._urlopen = request.urlopen if urlopen is None else urlopen
 
+    @staticmethod
+    def _serialize_message(message) -> dict[str, object]:
+        result: dict[str, object] = {
+            "role": message.role,
+            "content": message.content,
+        }
+
+        if message.tool_calls:
+            result["tool_calls"] = [
+                {
+                    "id": call.id,
+                    "type": "function",
+                    "function": {
+                        "name": call.name,
+                        "arguments": call.arguments,
+                    },
+                }
+                for call in message.tool_calls
+            ]
+
+        if message.tool_call_id is not None:
+            result["tool_call_id"] = message.tool_call_id
+
+        return result
+
     def generate(self, req: LLMRequest) -> LLMResponse:
-        payload = {
+        payload: dict[str, object] = {
             "model": self._model,
             "messages": [
-                {
-                    "role": message.role,
-                    "content": message.content,
-                }
+                self._serialize_message(message)
                 for message in req.messages
             ],
         }
+
+        if req.tools:
+            payload["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                }
+                for tool in req.tools
+            ]
 
         headers = {
             "Content-Type": "application/json",
@@ -71,24 +106,82 @@ class OpenAICompatibleProvider(LLMProvider):
                 f"OpenAI-compatible provider request failed with HTTP {exc.code}"
             ) from exc
         except error.URLError as exc:
-            raise RuntimeError("OpenAI-compatible provider request failed") from exc
+            raise RuntimeError(
+                "OpenAI-compatible provider request failed"
+            ) from exc
 
         try:
             data = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise RuntimeError("OpenAI-compatible provider returned invalid JSON") from exc
+            raise RuntimeError(
+                "OpenAI-compatible provider returned invalid JSON"
+            ) from exc
 
         try:
-            text = data["choices"][0]["message"]["content"]
+            message = data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError(
                 "OpenAI-compatible provider returned an invalid response"
             ) from exc
 
-        if not isinstance(text, str):
+        if not isinstance(message, dict):
+            raise RuntimeError(
+                "OpenAI-compatible provider returned an invalid response"
+            )
+
+        text = message.get("content")
+        if text is None:
+            text = ""
+        elif not isinstance(text, str):
             raise RuntimeError(
                 "OpenAI-compatible provider response content must be text"
             )
 
-        return LLMResponse(text=text)
+        raw_tool_calls = message.get("tool_calls", [])
+        if not isinstance(raw_tool_calls, list):
+            raise RuntimeError(
+                "OpenAI-compatible provider tool_calls must be a list"
+            )
 
+        tool_calls = []
+        for item in raw_tool_calls:
+            if not isinstance(item, dict):
+                raise RuntimeError(
+                    "OpenAI-compatible provider returned a malformed tool call"
+                )
+
+            function = item.get("function")
+            if not isinstance(function, dict):
+                raise RuntimeError(
+                    "OpenAI-compatible provider returned a malformed tool call"
+                )
+
+            call_id = item.get("id")
+            name = function.get("name")
+            arguments = function.get("arguments")
+
+            if (
+                not isinstance(call_id, str)
+                or not call_id
+                or not isinstance(name, str)
+                or not name
+                or not isinstance(arguments, str)
+            ):
+                raise RuntimeError(
+                    "OpenAI-compatible provider returned a malformed tool call"
+                )
+
+            tool_calls.append(
+                LLMToolCall(
+                    id=call_id,
+                    name=name,
+                    arguments=arguments,
+                )
+            )
+
+        if not text and not tool_calls:
+            raise RuntimeError(
+                "OpenAI-compatible provider response contained no text or tool calls"
+            )
+
+        return LLMResponse(text=text, tool_calls=tuple(tool_calls))

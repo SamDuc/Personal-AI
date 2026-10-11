@@ -517,6 +517,7 @@ def test_registry_profiles_returns_enabled_profiles_in_config_order() -> None:
                     {
                         LLMCapability.TEXT_INPUT,
                         LLMCapability.TEXT_OUTPUT,
+                        LLMCapability.TOOL_CALLING,
                     }
                 )
             ),

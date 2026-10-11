@@ -1,4 +1,4 @@
-﻿import json
+import json
 from typing import Self
 
 import pytest
@@ -350,4 +350,75 @@ def test_generate_rejects_non_text_response_content() -> None:
         RuntimeError,
         match="response content must be text",
     ):
+        provider.generate(LLMRequest(messages=[]))
+
+
+def test_generate_parses_tool_calls() -> None:
+    def fake_urlopen(req, timeout):
+        body = {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "local_file_read",
+                                    "arguments": json.dumps({"path": "notes.txt"}),
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+        return FakeHTTPResponse(json.dumps(body).encode("utf-8"))
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=fake_urlopen,
+    )
+
+    response = provider.generate(LLMRequest(messages=[]))
+
+    assert response.text == ""
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0].id == "call_1"
+    assert response.tool_calls[0].name == "local_file_read"
+    assert json.loads(response.tool_calls[0].arguments) == {"path": "notes.txt"}
+
+
+@pytest.mark.parametrize(
+    "tool_call",
+    [
+        {},
+        {"id": "call_1", "function": {"arguments": "{}"}},
+        {"id": "call_1", "function": {"name": "local_file_read"}},
+        {"id": "call_1", "function": {"name": "local_file_read", "arguments": {}}},
+    ],
+)
+def test_generate_rejects_malformed_tool_calls(tool_call) -> None:
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [tool_call],
+                    }
+                }
+            ]
+        }
+    ).encode("utf-8")
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=lambda req, timeout: FakeHTTPResponse(body),
+    )
+
+    with pytest.raises(RuntimeError, match="malformed tool call"):
         provider.generate(LLMRequest(messages=[]))

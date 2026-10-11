@@ -14,6 +14,7 @@ from personal_ai.core.agent_router import AgentRoute, AgentRouter
 from personal_ai.core.automation_scheduler import AutomationScheduler
 from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.executor import Executor
+from personal_ai.core.llm_capability import LLMCapability
 from personal_ai.core.llm_execution_strategy import ExecutionStrategyResolver
 from personal_ai.core.llm_integration import LLMIntegration
 from personal_ai.core.llm_provider_registry import ProviderRegistry
@@ -23,6 +24,7 @@ from personal_ai.core.planner import DeterministicPlanner
 from personal_ai.file_intelligence.index import ContentIndex
 from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.tools.executor import ToolExecutor
+from personal_ai.tools.local_file_read import LocalFileReadTool
 from personal_ai.tools.registry import ToolRegistry
 
 
@@ -51,6 +53,7 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
 
     execution_strategy_resolver = ExecutionStrategyResolver(provider_resolver)
     execution_strategy_resolver.resolve(provider_id)
+    provider_profile = provider_registry.profile(provider_id)
     provider = provider_resolver.resolve(provider_id).provider
 
     runtime = LLMRuntime(provider)
@@ -76,6 +79,9 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
 
     tool_registry = ToolRegistry()
     tool_executor = ToolExecutor()
+    tool_registry.register(
+        LocalFileReadTool(filesystem_scope=config.filesystem_scope)
+    )
 
     agent = Agent(
         integration,
@@ -85,6 +91,10 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
         executor=executor,
         tool_registry=tool_registry,
         tool_executor=tool_executor,
+        permission_evaluator=permission_evaluator,
+        tool_calling_enabled=provider_profile.capabilities.supports(
+            LLMCapability.TOOL_CALLING
+        ),
     )
 
     agent_router = AgentRouter(

@@ -59,3 +59,16 @@ def test_capability_metadata_is_immutable() -> None:
     profile = make_registry().profile("fake")
 
     assert isinstance(profile.capabilities.capabilities, frozenset)
+
+
+
+def test_fake_provider_does_not_advertise_tool_calling() -> None:
+    profile = make_registry().profile("fake")
+
+    assert not profile.capabilities.supports(LLMCapability.TOOL_CALLING)
+
+
+def test_openai_compatible_provider_advertises_tool_calling() -> None:
+    profile = make_registry().profile("openai_test")
+
+    assert profile.capabilities.supports(LLMCapability.TOOL_CALLING)

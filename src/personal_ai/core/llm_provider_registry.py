@@ -63,6 +63,11 @@ class ProviderRegistry:
                     {
                         LLMCapability.TEXT_INPUT,
                         LLMCapability.TEXT_OUTPUT,
+                        *(
+                            {LLMCapability.TOOL_CALLING}
+                            if selection.adapter == "openai_compatible"
+                            else set()
+                        ),
                     }
                 )
             ),

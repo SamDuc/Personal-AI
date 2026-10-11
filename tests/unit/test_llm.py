@@ -51,3 +51,55 @@ def test_llm_request_does_not_require_specific_provider() -> None:
     )
 
     assert len(request.messages) == 2
+
+def test_chat_message_supports_structured_tool_calls() -> None:
+    from personal_ai.core.llm import LLMToolCall
+
+    call = LLMToolCall(
+        id="call_1",
+        name="local_file_read",
+        arguments='{"path":"notes.txt"}',
+    )
+    message = ChatMessage(
+        role="assistant",
+        content=None,
+        tool_calls=(call,),
+    )
+
+    assert message.content is None
+    assert message.tool_calls == (call,)
+
+
+def test_chat_message_supports_tool_result_reference() -> None:
+    message = ChatMessage(
+        role="tool",
+        content="file contents",
+        tool_call_id="call_1",
+    )
+
+    assert message.role == "tool"
+    assert message.content == "file contents"
+    assert message.tool_call_id == "call_1"
+
+
+def test_llm_request_supports_tool_definitions() -> None:
+    from personal_ai.core.llm import LLMToolDefinition
+
+    tool = LLMToolDefinition(
+        name="local_file_read",
+        description="Read an authorized local text file.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    )
+    request = LLMRequest(
+        messages=[ChatMessage(role="user", content="Read notes.txt")],
+        tools=(tool,),
+    )
+
+    assert request.tools == (tool,)

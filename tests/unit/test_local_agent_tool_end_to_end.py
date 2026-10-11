@@ -20,7 +20,6 @@ from personal_ai.retrieval.local_search import (
     search_local_content,
 )
 from personal_ai.sources.config import SourceConfig
-from personal_ai.tools.executor import ToolExecutor
 from personal_ai.tools.local_file_read import LocalFileReadTool
 
 
@@ -127,12 +126,16 @@ def test_local_file_retrieval_agent_tool_end_to_end(tmp_path: Path) -> None:
     tool = LocalFileReadTool(
         filesystem_scope=FilesystemAccessScope([tmp_path]),
     )
-    executor = ToolExecutor()
+    from personal_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry()
+    registry.register(tool)
+    agent.tool_registry = registry
+
     evaluator = make_evaluator(read=True)
 
-    result = agent.execute_tool(
-        tool=tool,
-        executor=executor,
+    result = agent.execute_registered_tool(
+        name="local_file_read",
         input_data=str(path),
         permission_evaluator=evaluator,
     )

@@ -38,3 +38,8 @@ def test_capability_set_does_not_expose_mutable_state() -> None:
     )
 
     assert isinstance(capabilities.capabilities, frozenset)
+
+
+
+def test_tool_calling_capability_value_is_stable() -> None:
+    assert LLMCapability.TOOL_CALLING.value == "tool_calling"

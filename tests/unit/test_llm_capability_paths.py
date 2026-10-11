@@ -49,10 +49,23 @@ def test_online_openai_compatible_provider_exposes_text_capabilities() -> None:
     assert resolver.supports("openai_test", LLMCapability.TEXT_OUTPUT)
 
 
-def test_offline_and_online_paths_share_the_same_capability_contract() -> None:
+def test_offline_and_online_paths_share_text_capabilities() -> None:
     resolver = make_capability_resolver()
 
     offline = resolver.resolve("fake")
     online = resolver.resolve("openai_test")
 
-    assert offline.capabilities == online.capabilities
+    assert offline.supports(LLMCapability.TEXT_INPUT)
+    assert offline.supports(LLMCapability.TEXT_OUTPUT)
+    assert online.supports(LLMCapability.TEXT_INPUT)
+    assert online.supports(LLMCapability.TEXT_OUTPUT)
+
+
+def test_only_tool_calling_provider_exposes_tool_calling_capability() -> None:
+    resolver = make_capability_resolver()
+
+    offline = resolver.resolve("fake")
+    online = resolver.resolve("openai_test")
+
+    assert not offline.supports(LLMCapability.TOOL_CALLING)
+    assert online.supports(LLMCapability.TOOL_CALLING)
