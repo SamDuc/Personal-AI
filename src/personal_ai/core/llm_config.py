@@ -118,10 +118,12 @@ def validate_llm_provider_config(
                     f"{provider_id}"
                 )
 
-            if not isinstance(api_key_env, str) or not api_key_env.strip():
+            if api_key_env is not None and (
+                not isinstance(api_key_env, str) or not api_key_env.strip()
+            ):
                 raise ValueError(
-                    f"api_key_env must be a non-empty string for provider: "
-                    f"{provider_id}"
+                    f"api_key_env must be a non-empty string when provided "
+                    f"for provider: {provider_id}"
                 )
 
         validated_providers[provider_id] = dict(provider_config)

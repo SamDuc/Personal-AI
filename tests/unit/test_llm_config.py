@@ -197,7 +197,25 @@ def test_openai_compatible_requires_model() -> None:
         validate_llm_provider_config(config)
 
 
-def test_openai_compatible_requires_api_key_env() -> None:
+def test_openai_compatible_allows_missing_api_key_env() -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": True,
+                "type": "local",
+                "adapter": "openai_compatible",
+                "base_url": "http://localhost:11434/v1",
+                "model": "qwen2.5:3b",
+            }
+        },
+    }
+
+    result = validate_llm_provider_config(config)
+    assert result.providers["my_llm"]["adapter"] == "openai_compatible"
+
+
+def test_openai_compatible_rejects_empty_api_key_env() -> None:
     config = {
         "version": 2,
         "providers": {
@@ -205,8 +223,9 @@ def test_openai_compatible_requires_api_key_env() -> None:
                 "enabled": False,
                 "type": "cloud",
                 "adapter": "openai_compatible",
-                "base_url": "http://localhost:4000/v1",
+                "base_url": "https://example.invalid/v1",
                 "model": "test-model",
+                "api_key_env": "   ",
             }
         },
     }
