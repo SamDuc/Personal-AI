@@ -89,9 +89,31 @@ def test_agent_runs_tool_and_returns_follow_up_response(tmp_path: Path) -> None:
     assert runtime.requests[0].tools[0].name == "local_file_read"
 
     follow_up_messages = runtime.requests[1].messages
-    tool_messages = [message for message in follow_up_messages if message.role == "tool"]
+
+    assistant_tool_messages = [
+        message
+        for message in follow_up_messages
+        if message.role == "assistant" and message.tool_calls
+    ]
+    assert len(assistant_tool_messages) == 1
+
+    assistant_tool_message = assistant_tool_messages[0]
+    assert len(assistant_tool_message.tool_calls) == 1
+
+    original_call = assistant_tool_message.tool_calls[0]
+    assert original_call.id == "call-1"
+    assert original_call.name == "local_file_read"
+    assert json.loads(original_call.arguments) == {"path": str(target)}
+
+    tool_messages = [
+        message for message in follow_up_messages if message.role == "tool"
+    ]
     assert len(tool_messages) == 1
-    assert tool_messages[0].tool_call_id == "call-1"
+    assert tool_messages[0].tool_call_id == original_call.id
+
+    assistant_index = follow_up_messages.index(assistant_tool_message)
+    tool_index = follow_up_messages.index(tool_messages[0])
+    assert assistant_index < tool_index
 
     tool_payload = json.loads(tool_messages[0].content or "{}")
     assert tool_payload["status"] == "success"

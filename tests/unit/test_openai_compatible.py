@@ -422,3 +422,66 @@ def test_generate_rejects_malformed_tool_calls(tool_call) -> None:
 
     with pytest.raises(RuntimeError, match="malformed tool call"):
         provider.generate(LLMRequest(messages=[]))
+
+def test_generate_serializes_assistant_tool_calls_and_tool_result() -> None:
+    from personal_ai.core.llm import LLMToolCall
+
+    captured = {}
+
+    def fake_urlopen(req, timeout):
+        captured["body"] = json.loads(req.data.decode("utf-8"))
+        return FakeHTTPResponse(
+            b'{"choices":[{"message":{"content":"Done"}}]}'
+        )
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:8000/v1",
+        model="test-model",
+        urlopen=fake_urlopen,
+    )
+
+    call = LLMToolCall(
+        id="call-123",
+        name="local_file_read",
+        arguments='{"path":"notes.txt"}',
+    )
+
+    provider.generate(
+        LLMRequest(
+            messages=[
+                ChatMessage(role="user", content="Read notes.txt"),
+                ChatMessage(
+                    role="assistant",
+                    content="",
+                    tool_calls=(call,),
+                ),
+                ChatMessage(
+                    role="tool",
+                    content='{"status":"success","result":"hello","error":null}',
+                    tool_call_id="call-123",
+                ),
+            ]
+        )
+    )
+
+    messages = captured["body"]["messages"]
+
+    assert messages[1] == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "call-123",
+                "type": "function",
+                "function": {
+                    "name": "local_file_read",
+                    "arguments": '{"path":"notes.txt"}',
+                },
+            }
+        ],
+    }
+    assert messages[2] == {
+        "role": "tool",
+        "content": '{"status":"success","result":"hello","error":null}',
+        "tool_call_id": "call-123",
+    }
