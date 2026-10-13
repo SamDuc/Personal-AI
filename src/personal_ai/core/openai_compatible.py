@@ -100,7 +100,25 @@ class OpenAICompatibleProvider(LLMProvider):
 
         try:
             with self._urlopen(http_request, timeout=self._timeout) as response:
-                raw = response.read()
+                max_response_bytes = 10 * 1024 * 1024
+                chunks = []
+                total_bytes = 0
+
+                while total_bytes <= max_response_bytes:
+                    chunk = response.read(
+                        min(64 * 1024, max_response_bytes + 1 - total_bytes)
+                    )
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    total_bytes += len(chunk)
+
+                if total_bytes > max_response_bytes:
+                    raise RuntimeError(
+                        "OpenAI-compatible provider response exceeded the 10 MiB size limit"
+                    )
+
+                raw = b"".join(chunks)
         except error.HTTPError as exc:
             raise RuntimeError(
                 f"OpenAI-compatible provider request failed with HTTP {exc.code}"

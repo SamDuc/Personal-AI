@@ -248,3 +248,57 @@ def test_unknown_adapter_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="Unsupported provider adapter"):
         validate_llm_provider_config(config)
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://example.com/v1",
+        "https://localhost:11434/v1",
+        "http://localhost.example/v1",
+        "http://192.168.1.20:11434/v1",
+        "http://user:pass@localhost:11434/v1",
+    ],
+)
+def test_local_provider_rejects_non_loopback_url(base_url: str) -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": True,
+                "type": "local",
+                "adapter": "openai_compatible",
+                "base_url": base_url,
+                "model": "test-model",
+            }
+        },
+    }
+
+    with pytest.raises(ValueError, match="loopback HTTP base_url"):
+        validate_llm_provider_config(config)
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://localhost:11434/v1",
+        "http://127.0.0.1:11434/v1",
+        "http://[::1]:11434/v1",
+    ],
+)
+def test_local_provider_accepts_loopback_url(base_url: str) -> None:
+    config = {
+        "version": 2,
+        "providers": {
+            "my_llm": {
+                "enabled": True,
+                "type": "local",
+                "adapter": "openai_compatible",
+                "base_url": base_url,
+                "model": "test-model",
+            }
+        },
+    }
+
+    result = validate_llm_provider_config(config)
+    assert result.providers["my_llm"]["base_url"] == base_url

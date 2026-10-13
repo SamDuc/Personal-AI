@@ -1,6 +1,36 @@
+import ipaddress
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 SUPPORTED_CONFIG_VERSION = 2
+
+
+def _is_loopback_http_url(url: str) -> bool:
+    """Accept only HTTP URLs whose host is localhost or a loopback IP."""
+    try:
+        parsed = urlsplit(url)
+        hostname = parsed.hostname
+        _ = parsed.port  # Reject malformed ports.
+    except ValueError:
+        return False
+
+    if (
+        parsed.scheme.casefold() != "http"
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return False
+
+    hostname = hostname.rstrip(".").casefold()
+    if hostname == "localhost":
+        return True
+
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
 SUPPORTED_PROVIDER_TYPES = {"cloud", "local"}
 SUPPORTED_ADAPTERS = {"fake", "openai_compatible"}
 
@@ -110,6 +140,12 @@ def validate_llm_provider_config(
                 raise ValueError(
                     f"base_url must be a non-empty string for provider: "
                     f"{provider_id}"
+                )
+
+            if provider_type == "local" and not _is_loopback_http_url(base_url):
+                raise ValueError(
+                    "type local requires a loopback HTTP base_url for "
+                    f"provider: {provider_id}"
                 )
 
             if not isinstance(model, str) or not model.strip():

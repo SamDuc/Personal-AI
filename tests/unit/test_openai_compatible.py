@@ -17,8 +17,15 @@ class FakeHTTPResponse:
     def __exit__(self, exc_type, exc, tb) -> None:
         return None
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        if size < 0:
+            result = self._body
+            self._body = b""
+            return result
+
+        result = self._body[:size]
+        self._body = self._body[size:]
+        return result
 
 
 def test_generate_sends_openai_compatible_request() -> None:
@@ -485,3 +492,22 @@ def test_generate_serializes_assistant_tool_calls_and_tool_result() -> None:
         "content": '{"status":"success","result":"hello","error":null}',
         "tool_call_id": "call-123",
     }
+
+
+def test_generate_rejects_oversized_response(monkeypatch) -> None:
+    monkeypatch.delenv("TEST_LLM_API_KEY", raising=False)
+
+    provider = OpenAICompatibleProvider(
+        base_url="http://localhost:11434/v1",
+        model="test-model",
+        timeout=1,
+        urlopen=lambda req, timeout: FakeHTTPResponse(
+            b"x" * (10 * 1024 * 1024 + 1)
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="response exceeded the 10 MiB size limit",
+    ):
+        provider.generate(LLMRequest(messages=[ChatMessage(role="user", content="hi")]))
