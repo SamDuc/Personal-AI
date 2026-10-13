@@ -209,10 +209,20 @@ class Agent:
         tool_definitions = self._get_llm_tool_definitions()
 
         if tool_definitions:
-            response = self.integration.generate(
-                request_session,
-                tools=tool_definitions,
-            )
+            try:
+                response = self.integration.generate(
+                    request_session,
+                    tools=tool_definitions,
+                )
+            except RuntimeError as exc:
+                if (
+                    "OpenAI-compatible provider response contained no text or tool calls"
+                    not in str(exc)
+                ):
+                    raise
+
+                # Retry once without tools if the model returned an empty response.
+                response = self.integration.generate(request_session)
         else:
             response = self.integration.generate(request_session)
 
@@ -244,27 +254,22 @@ class Agent:
         if not self.tool_calling_enabled or self.permission_evaluator is None:
             return ()
 
-        tool = self.tool_registry.get("local_file_read")
-        if tool is None:
-            return ()
-
-        return (
-            LLMToolDefinition(
-                name="local_file_read",
-                description="Read a text file within the authorized filesystem scope.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the file to read.",
-                        }
-                    },
-                    "required": ["path"],
-                    "additionalProperties": False,
-                },
-            ),
-        )
+        definitions: list[LLMToolDefinition] = []
+        for name in self.tool_registry.tool_names:
+            tool = self.tool_registry.get(name)
+            if tool is None:
+                continue
+            definition = tool.definition
+            if not isinstance(definition.parameters, dict):
+                continue
+            definitions.append(
+                LLMToolDefinition(
+                    name=definition.name,
+                    description=definition.description,
+                    parameters=definition.parameters,
+                )
+            )
+        return tuple(definitions)
 
     def _handle_model_tool_call(self, tool_call: object) -> ChatMessage:
         call_id = getattr(tool_call, "id", None)
@@ -292,7 +297,8 @@ class Agent:
                 "error": "Tool name is invalid.",
             })
 
-        if name != "local_file_read" or self.tool_registry.get(name) is None:
+        tool = self.tool_registry.get(name)
+        if tool is None:
             return tool_message({
                 "status": "unknown_tool",
                 "result": None,
@@ -322,21 +328,73 @@ class Agent:
                 "error": "Tool arguments are not valid JSON.",
             })
 
-        if (
-            not isinstance(parsed, dict)
-            or set(parsed) != {"path"}
-            or not isinstance(parsed["path"], str)
-            or not parsed["path"].strip()
+        if not isinstance(parsed, dict):
+            return tool_message({
+                "status": "invalid_input",
+                "result": None,
+                "error": "Tool arguments must be a JSON object.",
+            })
+
+        definition = tool.definition
+        schema = definition.parameters
+        if not isinstance(schema, dict):
+            return tool_message({
+                "status": "invalid_input",
+                "result": None,
+                "error": "Tool has no valid parameter schema.",
+            })
+
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        if not isinstance(properties, dict) or not isinstance(required, list):
+            return tool_message({
+                "status": "invalid_input",
+                "result": None,
+                "error": "Tool parameter schema is invalid.",
+            })
+
+        if any(key not in parsed for key in required):
+            return tool_message({
+                "status": "invalid_input",
+                "result": None,
+                "error": "One or more required tool arguments are missing.",
+            })
+        if schema.get("additionalProperties") is False and any(
+            key not in properties for key in parsed
         ):
             return tool_message({
                 "status": "invalid_input",
                 "result": None,
-                "error": "Expected exactly one non-empty string field: path.",
+                "error": "Unexpected tool argument.",
             })
+
+        for key, value in parsed.items():
+            property_schema = properties.get(key)
+            if not isinstance(property_schema, dict):
+                continue
+            if property_schema.get("type") == "string" and (
+                not isinstance(value, str) or not value.strip()
+            ):
+                return tool_message({
+                    "status": "invalid_input",
+                    "result": None,
+                    "error": f"Argument '{key}' must be a non-empty string.",
+                })
+
+        input_data: object = parsed
+        input_field = definition.input_field
+        if input_field is not None:
+            if set(parsed) != {input_field}:
+                return tool_message({
+                    "status": "invalid_input",
+                    "result": None,
+                    "error": f"Expected exactly one argument: {input_field}.",
+                })
+            input_data = parsed[input_field]
 
         result = self.execute_registered_tool(
             name=name,
-            input_data=parsed["path"],
+            input_data=input_data,
             permission_evaluator=self.permission_evaluator,
         )
         return tool_message({

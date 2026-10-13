@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from personal_ai.filesystem.scope import FilesystemAccessScope
 from personal_ai.permissions.evaluator import PermissionEvaluator
@@ -12,6 +12,18 @@ class LocalFileReadTool(Tool):
         description="Read the text content of an authorized local file.",
         resource_category="local_filesystem",
         operation="read",
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to the file to read.",
+                }
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+        input_field="path",
     )
 
     def __init__(

@@ -255,3 +255,104 @@ def test_agent_propagates_execution_failure() -> None:
 
     assert session.messages == []
     assert runtime.call_count == 0
+
+
+def test_agent_retries_empty_provider_response_without_tools(
+    monkeypatch,
+) -> None:
+    from personal_ai.core.llm import LLMToolDefinition
+
+    class RetryIntegration:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def generate(self, session, tools=()):
+            self.calls.append(tools)
+            if tools:
+                raise RuntimeError(
+                    "OpenAI-compatible provider response contained "
+                    "no text or tool calls"
+                )
+            return LLMResponse(text="Fallback response")
+
+    integration = RetryIntegration()
+    agent = Agent(integration)  # type: ignore[arg-type]
+    tool_definition = LLMToolDefinition(
+        name="test_tool",
+        description="Test tool",
+        parameters={"type": "object", "properties": {}},
+    )
+    monkeypatch.setattr(
+        agent,
+        "_get_llm_tool_definitions",
+        lambda: (tool_definition,),
+    )
+
+    result = agent.run("Test request", ConversationSession())
+
+    assert result == "Fallback response"
+    assert len(integration.calls) == 2
+    assert integration.calls[0] == (tool_definition,)
+    assert integration.calls[1] == ()
+
+
+def test_agent_does_not_retry_unrelated_runtime_error(
+    monkeypatch,
+) -> None:
+    failure = RuntimeError("provider connection failed")
+
+    class FailingIntegration:
+        def __init__(self) -> None:
+            self.call_count = 0
+
+        def generate(self, session, tools=()):
+            self.call_count += 1
+            raise failure
+
+    integration = FailingIntegration()
+    agent = Agent(integration)  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        agent,
+        "_get_llm_tool_definitions",
+        lambda: (object(),),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        agent.run("Test request", ConversationSession())
+
+    assert exc_info.value is failure
+    assert integration.call_count == 1
+
+
+def test_agent_propagates_failure_from_empty_response_retry(
+    monkeypatch,
+) -> None:
+    retry_failure = RuntimeError("fallback generation failed")
+
+    class RetryFailingIntegration:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def generate(self, session, tools=()):
+            self.calls.append(tools)
+            if tools:
+                raise RuntimeError(
+                    "OpenAI-compatible provider response contained "
+                    "no text or tool calls"
+                )
+            raise retry_failure
+
+    integration = RetryFailingIntegration()
+    agent = Agent(integration)  # type: ignore[arg-type]
+    monkeypatch.setattr(
+        agent,
+        "_get_llm_tool_definitions",
+        lambda: (object(),),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        agent.run("Test request", ConversationSession())
+
+    assert exc_info.value is retry_failure
+    assert len(integration.calls) == 2
+    assert integration.calls[1] == ()
