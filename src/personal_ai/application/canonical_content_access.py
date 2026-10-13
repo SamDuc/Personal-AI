@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from personal_ai.core.models import DataItem
 from personal_ai.file_intelligence.index import ContentIndex
@@ -44,9 +43,9 @@ class LocalCanonicalContentAccess:
         ):
             return None
 
-        source_path = Path(item.source_id).expanduser().resolve()
+        source_path = self.filesystem_scope.resolve_allowed_path(item.source_id)
 
-        if not self.filesystem_scope.is_allowed(source_path):
+        if source_path is None:
             return None
 
         return self.content_index.get_content(

@@ -41,26 +41,38 @@ class LocalFileReadTool(Tool):
         if decision != "allowed":
             return ToolResult(status=decision)
 
-        if not self.filesystem_scope.is_allowed(path):
+        resolved_path = self.filesystem_scope.resolve_allowed_path(path)
+        if resolved_path is None:
             return ToolResult(
                 status="denied",
                 error=f"Path is outside authorized filesystem scope: {path}",
             )
 
-        if not path.exists():
+        if not resolved_path.exists():
             return ToolResult(
                 status="execution_failure",
                 error=f"File does not exist: {path}",
             )
 
-        if not path.is_file():
+        if not resolved_path.is_file():
             return ToolResult(
                 status="invalid_input",
                 error=f"Path is not a file: {path}",
             )
 
+        max_file_bytes = 1024 * 1024
+
         try:
-            content = path.read_text(encoding="utf-8")
+            with resolved_path.open("rb") as file_handle:
+                raw_content = file_handle.read(max_file_bytes + 1)
+
+            if len(raw_content) > max_file_bytes:
+                return ToolResult(
+                    status="invalid_input",
+                    error="File exceeds the 1 MiB read limit.",
+                )
+
+            content = raw_content.decode("utf-8")
         except OSError as exc:
             return ToolResult(
                 status="execution_failure",

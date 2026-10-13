@@ -18,9 +18,7 @@ def make_access(tmp_path: Path, *, read: bool = True, enabled: bool = True):
 
     return LocalCanonicalContentAccess(
         filesystem_scope=FilesystemAccessScope([tmp_path]),
-        source_config=SourceConfig(
-            {"sources": {"local_filesystem": {"enabled": enabled}}}
-        ),
+        source_config=SourceConfig({"sources": {"local_filesystem": {"enabled": enabled}}}),
         permission_evaluator=PermissionEvaluator(
             PermissionPolicy(
                 {
@@ -80,9 +78,7 @@ def test_content_access_reads_indexed_content_within_authorized_scope(tmp_path):
     index = make_index(path)
     access = LocalCanonicalContentAccess(
         filesystem_scope=FilesystemAccessScope([tmp_path]),
-        source_config=SourceConfig(
-            {"sources": {"local_filesystem": {"enabled": True}}}
-        ),
+        source_config=SourceConfig({"sources": {"local_filesystem": {"enabled": True}}}),
         permission_evaluator=PermissionEvaluator(
             PermissionPolicy(
                 {
@@ -145,6 +141,7 @@ def test_content_access_returns_none_for_unindexed_content(tmp_path):
 
     assert access.read(make_item(tmp_path / "notes.txt")) is None
 
+
 def test_content_access_resolves_equivalent_source_paths(tmp_path):
     from personal_ai.application.canonical_content_access import (
         LocalCanonicalContentAccess,
@@ -156,9 +153,7 @@ def test_content_access_resolves_equivalent_source_paths(tmp_path):
 
     access = LocalCanonicalContentAccess(
         filesystem_scope=FilesystemAccessScope([tmp_path]),
-        source_config=SourceConfig(
-            {"sources": {"local_filesystem": {"enabled": True}}}
-        ),
+        source_config=SourceConfig({"sources": {"local_filesystem": {"enabled": True}}}),
         permission_evaluator=PermissionEvaluator(
             PermissionPolicy(
                 {
@@ -177,6 +172,7 @@ def test_content_access_resolves_equivalent_source_paths(tmp_path):
 
     assert access.read(item) == "authorized document content"
 
+
 def test_content_access_returns_none_when_content_hash_mismatches(tmp_path):
     path = tmp_path / "notes.txt"
     index = make_index(path)
@@ -184,5 +180,24 @@ def test_content_access_returns_none_when_content_hash_mismatches(tmp_path):
     access.content_index = index
 
     item = make_item(path, content_hash="different-hash")
+
+    assert access.read(item) is None
+
+
+def test_content_access_returns_none_for_null_byte_source_id(tmp_path, monkeypatch):
+    access = make_access(tmp_path)
+    item = make_item(
+        tmp_path / "notes.txt",
+        source_id="\x00",
+    )
+
+    def unexpected_get_content(*args, **kwargs):
+        raise AssertionError("Content index must not be queried")
+
+    monkeypatch.setattr(
+        access.content_index,
+        "get_content",
+        unexpected_get_content,
+    )
 
     assert access.read(item) is None

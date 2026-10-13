@@ -1,4 +1,6 @@
-﻿from pathlib import Path
+from pathlib import Path
+
+import pytest
 
 from personal_ai.filesystem.scope import FilesystemAccessScope
 from personal_ai.permissions.evaluator import PermissionEvaluator
@@ -144,6 +146,7 @@ def test_local_file_read_rejects_directory(tmp_path: Path):
     assert result.result is None
     assert result.error is not None
 
+
 def test_local_file_read_denies_path_traversal_outside_scope(tmp_path: Path):
     authorized_root = tmp_path / "authorized"
     authorized_root.mkdir()
@@ -163,3 +166,46 @@ def test_local_file_read_denies_path_traversal_outside_scope(tmp_path: Path):
     assert result.status == "denied"
     assert result.result is None
     assert result.error is not None
+
+
+def test_local_file_read_rejects_file_over_1_mib(tmp_path: Path):
+    authorized_root = tmp_path / "authorized"
+    authorized_root.mkdir()
+
+    target = authorized_root / "large.txt"
+    target.write_bytes(b"x" * (1024 * 1024 + 1))
+
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([authorized_root]),
+    )
+    evaluator = make_evaluator(read=True)
+
+    result = tool.execute(str(target), evaluator)
+
+    assert result.status == "invalid_input"
+    assert result.error == "File exceeds the 1 MiB read limit."
+    assert result.result is None
+
+
+def test_local_file_read_denies_symlink_outside_scope(tmp_path: Path):
+    authorized_root = tmp_path / "authorized"
+    authorized_root.mkdir()
+
+    outside_file = tmp_path / "secret.txt"
+    outside_file.write_text("secret", encoding="utf-8")
+
+    link = authorized_root / "link.txt"
+    try:
+        link.symlink_to(outside_file)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlink creation is unavailable on this system.")
+
+    tool = LocalFileReadTool(
+        filesystem_scope=FilesystemAccessScope([authorized_root]),
+    )
+    evaluator = make_evaluator(read=True)
+
+    result = tool.execute(str(link), evaluator)
+
+    assert result.status == "denied"
+    assert result.result is None

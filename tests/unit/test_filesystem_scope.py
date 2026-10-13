@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 import pytest
 
@@ -97,3 +97,9 @@ def test_symlink_is_evaluated_using_resolved_path(tmp_path: Path) -> None:
     scope = FilesystemAccessScope([root])
 
     assert scope.is_allowed(link) is False
+
+
+def test_invalid_null_byte_path_is_denied() -> None:
+    scope = FilesystemAccessScope([])
+
+    assert scope.resolve_allowed_path("\x00") is None
