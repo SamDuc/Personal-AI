@@ -1,3 +1,5 @@
+from dataclasses import replace
+import pytest
 from personal_ai.file_intelligence.index import ContentIndex, IndexedContent
 from personal_ai.file_intelligence.normalization import (
     normalize_extracted_content,
@@ -246,3 +248,15 @@ def test_reindex_replaces_current_content_for_same_source():
         )
         == "new content"
     )
+
+
+def test_index_rejects_blank_content_hash():
+    index = ContentIndex()
+    content = replace(make_content(), content_hash="   ")
+
+    with pytest.raises(ValueError, match="content_hash must not be empty"):
+        index.index(
+            content,
+            content_ref="index://content/test",
+            indexed_at="2026-10-13T00:00:00Z",
+        )

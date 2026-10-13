@@ -71,6 +71,8 @@ class ContentIndex:
             raise ValueError("content_ref must not be empty")
         if not indexed_at:
             raise ValueError("indexed_at must not be empty")
+        if not isinstance(content.content_hash, str) or not content.content_hash.strip():
+            raise ValueError("content_hash must not be empty")
 
         with self.lock_source(content.source_path), self._state_lock:
             indexed = IndexedContent(
