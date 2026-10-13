@@ -2,6 +2,7 @@ import json
 from collections.abc import Callable
 from typing import Protocol
 
+from personal_ai.core.cloud_consent import CloudConsentError
 from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.executor import Executor
 from personal_ai.core.llm import (
@@ -78,6 +79,16 @@ class Agent:
         self.max_tool_rounds = max_tool_rounds
 
     def run(
+        self,
+        user_request: str,
+        session: ConversationSession,
+    ) -> str:
+        try:
+            return self._run_request(user_request, session)
+        except CloudConsentError as exc:
+            return str(exc)
+
+    def _run_request(
         self,
         user_request: str,
         session: ConversationSession,

@@ -12,6 +12,10 @@ from personal_ai.application.paths import ApplicationPaths
 from personal_ai.core.agent import Agent
 from personal_ai.core.agent_router import AgentRoute, AgentRouter
 from personal_ai.core.automation_scheduler import AutomationScheduler
+from personal_ai.core.cloud_consent import (
+    CLICloudConsentProvider,
+    ConsentGuardedProvider,
+)
 from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.executor import Executor
 from personal_ai.core.llm_capability import LLMCapability
@@ -55,6 +59,12 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     execution_strategy_resolver.resolve(provider_id)
     provider_profile = provider_registry.profile(provider_id)
     provider = provider_resolver.resolve(provider_id).provider
+    if provider_profile.provider_type == "cloud":
+        provider = ConsentGuardedProvider(
+            provider=provider,
+            provider_id=provider_id,
+            consent_provider=CLICloudConsentProvider(),
+        )
 
     runtime = LLMRuntime(provider)
     integration = LLMIntegration(runtime)

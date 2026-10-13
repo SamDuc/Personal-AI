@@ -76,6 +76,9 @@ def test_bootstrap_selects_configured_openai_compatible_provider(monkeypatch, tm
     enabled_config = source_config.replace(
         "  my_llm:\n    enabled: false",
         "  my_llm:\n    enabled: true",
+    ).replace(
+        "  my_llm:\n    enabled: true\n    type: local",
+        "  my_llm:\n    enabled: true\n    type: cloud",
     )
     (config_dir / "llm.yaml").write_text(
         enabled_config,
@@ -104,9 +107,11 @@ def test_bootstrap_selects_configured_openai_compatible_provider(monkeypatch, tm
 
     provider = application.agent.integration.runtime.provider
 
+    from personal_ai.core.cloud_consent import ConsentGuardedProvider
     from personal_ai.core.openai_compatible import OpenAICompatibleProvider
 
-    assert isinstance(provider, OpenAICompatibleProvider)
+    assert isinstance(provider, ConsentGuardedProvider)
+    assert isinstance(provider._provider, OpenAICompatibleProvider)
 
 def test_bootstrap_resolves_execution_strategy(monkeypatch, tmp_path):
     import personal_ai.application.bootstrap as bootstrap_module
@@ -185,3 +190,19 @@ def test_bootstrap_registers_local_file_read_tool_without_granting_access(tmp_pa
 
     assert result.status == "denied"
     assert result.result is None
+
+def test_bootstrap_does_not_wrap_local_provider_in_consent_guard(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("PERSONAL_AI_LLM_PROVIDER", "fake")
+    from personal_ai.core.cloud_consent import ConsentGuardedProvider
+
+    application = bootstrap(
+        ApplicationPaths(
+            config_dir=__import__("pathlib").Path("config"),
+            data_dir=tmp_path / "data",
+        )
+    )
+
+    provider = application.agent.integration.runtime.provider
+    assert not isinstance(provider, ConsentGuardedProvider)
