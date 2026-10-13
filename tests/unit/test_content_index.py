@@ -1,5 +1,7 @@
 from dataclasses import replace
+
 import pytest
+
 from personal_ai.file_intelligence.index import ContentIndex, IndexedContent
 from personal_ai.file_intelligence.normalization import (
     normalize_extracted_content,
