@@ -40,6 +40,9 @@ def test_bootstrapped_agent_denial_never_calls_cloud_provider(
     cloud_config = source_config.replace(
         "  my_llm:\n    enabled: true\n    type: local",
         "  my_llm:\n    enabled: true\n    type: cloud",
+    ).replace(
+        "  my_llm:\n    enabled: false\n    type: cloud",
+        "  my_llm:\n    enabled: true\n    type: cloud",
     )
     (config_dir / "llm.yaml").write_text(cloud_config, encoding="utf-8")
 
@@ -86,6 +89,9 @@ def test_bootstrapped_agent_pending_never_calls_cloud_provider(
     source_config = Path("config/llm.yaml").read_text(encoding="utf-8")
     cloud_config = source_config.replace(
         "  my_llm:\n    enabled: true\n    type: local",
+        "  my_llm:\n    enabled: true\n    type: cloud",
+    ).replace(
+        "  my_llm:\n    enabled: false\n    type: cloud",
         "  my_llm:\n    enabled: true\n    type: cloud",
     )
     (config_dir / "llm.yaml").write_text(cloud_config, encoding="utf-8")
