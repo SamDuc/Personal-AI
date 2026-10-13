@@ -1,4 +1,4 @@
-﻿from personal_ai.permissions.evaluator import PermissionEvaluator
+from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.permissions.policy import PermissionPolicy
 from personal_ai.tools.executor import ToolExecutor
 from personal_ai.tools.model import ToolDefinition, ToolResult
@@ -51,6 +51,7 @@ def test_executor_denied_does_not_execute_tool():
 
     assert result.status == "denied"
     assert result.result is None
+    assert result.error == "Permission denied for this operation."
     assert tool.execution_count == 0
 
 
@@ -66,6 +67,9 @@ def test_executor_confirmation_required_does_not_execute_tool():
 
     assert result.status == "confirmation_required"
     assert result.result is None
+    assert result.error == (
+        "Explicit confirmation is required for this operation."
+    )
     assert tool.execution_count == 0
 
 
