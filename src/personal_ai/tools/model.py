@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 
 @dataclass
@@ -7,6 +7,10 @@ class ToolDefinition:
     description: str
     resource_category: str
     operation: str
+    parameters: dict[str, object] | None = None
+    input_field: str | None = None
+
+
 @dataclass
 class ToolResult:
     status: str

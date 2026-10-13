@@ -16,8 +16,15 @@ class FakeHTTPResponse:
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         return None
 
-    def read(self) -> bytes:
-        return self._payload
+    def read(self, size: int = -1) -> bytes:
+        if size < 0:
+            result = self._payload
+            self._payload = b""
+            return result
+
+        result = self._payload[:size]
+        self._payload = self._payload[size:]
+        return result
 
 
 def test_factory_created_openai_provider_completes_mock_http_request(

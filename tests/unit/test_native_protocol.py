@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 import pytest
 
@@ -16,8 +16,15 @@ class FakeHTTPResponse:
     def __exit__(self, exc_type, exc, tb):
         return None
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, size: int = -1) -> bytes:
+        if size < 0:
+            result = self._body
+            self._body = b""
+            return result
+
+        result = self._body[:size]
+        self._body = self._body[size:]
+        return result
 
 
 def test_native_protocol_contract_request_shape() -> None:
