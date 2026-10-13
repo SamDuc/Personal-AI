@@ -1,0 +1,6 @@
+# Web search is deliberately disabled until provider tests and live validation pass.
+enabled: false
+provider: tavily
+api_key_env: PERSONAL_AI_TAVILY_API_KEY
+timeout_seconds: 10
+max_results: 5

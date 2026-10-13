@@ -1,10 +1,11 @@
 ﻿from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
+from personal_ai.application.search_config import SearchConfig
 from personal_ai.core.llm_config import (
     LLMProviderConfig,
     validate_llm_provider_config,
@@ -45,6 +46,7 @@ class ApplicationConfig:
     source_config: SourceConfig
     llm_config: LLMProviderConfig
     filesystem_scope: FilesystemAccessScope
+    search_config: SearchConfig = field(default_factory=SearchConfig)
 
     @classmethod
     def from_paths(cls, paths: object) -> ApplicationConfig:
@@ -57,10 +59,17 @@ class ApplicationConfig:
         source_config = _load_yaml(source_path)
         llm_config = _load_yaml(llm_path)
         filesystem_scope = _load_filesystem_scope(filesystem_path)
+        search_path = paths.search_config
+        search_config = (
+            SearchConfig.from_mapping(_load_yaml(search_path))
+            if search_path.is_file()
+            else SearchConfig()
+        )
 
         return cls(
             permission_policy=PermissionPolicy(permission_config),
             source_config=SourceConfig(source_config),
             llm_config=validate_llm_provider_config(llm_config),
             filesystem_scope=filesystem_scope,
+            search_config=search_config,
         )

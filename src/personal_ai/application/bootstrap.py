@@ -30,6 +30,9 @@ from personal_ai.permissions.evaluator import PermissionEvaluator
 from personal_ai.tools.executor import ToolExecutor
 from personal_ai.tools.local_file_read import LocalFileReadTool
 from personal_ai.tools.registry import ToolRegistry
+from personal_ai.tools.search_providers import build_search_provider
+from personal_ai.tools.web_fetch import WebFetchTool
+from personal_ai.tools.web_search import WebSearchTool
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,22 @@ def bootstrap(paths: ApplicationPaths | None = None) -> ApplicationRuntime:
     tool_registry.register(
         LocalFileReadTool(filesystem_scope=config.filesystem_scope)
     )
+
+    # Browser is the top-level gate; search has its own opt-in flag.
+    try:
+        browser_enabled = config.source_config.is_enabled("browser")
+    except KeyError:
+        browser_enabled = False
+
+    if browser_enabled:
+        if config.search_config.enabled:
+            tool_registry.register(
+                WebSearchTool(
+                    provider=build_search_provider(config.search_config),
+                    max_results=config.search_config.max_results,
+                )
+            )
+        tool_registry.register(WebFetchTool())
 
     agent = Agent(
         integration,

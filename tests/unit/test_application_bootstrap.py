@@ -206,3 +206,68 @@ def test_bootstrap_does_not_wrap_local_provider_in_consent_guard(
 
     provider = application.agent.integration.runtime.provider
     assert not isinstance(provider, ConsentGuardedProvider)
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    ("browser_enabled", "search_enabled", "expected_tools"),
+    [
+        (False, False, {"local_file_read"}),
+        (False, True, {"local_file_read"}),
+        (True, False, {"local_file_read", "web_fetch"}),
+        (True, True, {"local_file_read", "web_fetch", "web_search"}),
+    ],
+)
+def test_bootstrap_registers_web_tools_only_when_individually_enabled(
+    monkeypatch, tmp_path, browser_enabled, search_enabled, expected_tools
+):
+    import shutil
+    from pathlib import Path
+
+    import yaml
+
+    monkeypatch.setenv("PERSONAL_AI_LLM_PROVIDER", "fake")
+
+    source_root = Path("config")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+
+    relative_files = (
+        "llm.yaml",
+        "filesystem.yaml",
+        "permissions/permissions.yaml",
+        "sources/sources.yaml",
+        "search.yaml",
+    )
+
+    for relative in relative_files:
+        source = source_root / relative
+        destination = config_dir / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+    sources_path = config_dir / "sources" / "sources.yaml"
+    sources = yaml.safe_load(sources_path.read_text(encoding="utf-8"))
+    sources["sources"]["browser"]["enabled"] = browser_enabled
+    sources_path.write_text(
+        yaml.safe_dump(sources, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    search_path = config_dir / "search.yaml"
+    search = yaml.safe_load(search_path.read_text(encoding="utf-8"))
+    search["enabled"] = search_enabled
+    search_path.write_text(
+        yaml.safe_dump(search, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    application = bootstrap(
+        ApplicationPaths(
+            config_dir=config_dir,
+            data_dir=tmp_path / "data",
+        )
+    )
+
+    assert set(application.tool_registry.tool_names) == expected_tools

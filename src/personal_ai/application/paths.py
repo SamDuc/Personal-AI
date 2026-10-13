@@ -53,4 +53,8 @@ class ApplicationPaths:
         return self.config_dir / "llm.yaml"
     @property
     def filesystem_config(self) -> Path:
-       return self.config_dir / "filesystem.yaml"
+        return self.config_dir / "filesystem.yaml"
+
+    @property
+    def search_config(self) -> Path:
+        return self.config_dir / "search.yaml"
