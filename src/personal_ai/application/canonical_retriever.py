@@ -100,6 +100,8 @@ class LocalCanonicalRetrieval:
                 item.access_policy = AccessPolicy(read=True, write=False)
                 candidates.append((metadata, item))
 
+        candidates.sort(key=lambda pair: str(pair[1].source_id).casefold())
+
         if not candidates:
             self._catalog = {}
             return 0

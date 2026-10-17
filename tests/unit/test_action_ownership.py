@@ -70,7 +70,14 @@ def test_windows_lock_error_classification(monkeypatch, tmp_path):
 
     fake_msvcrt.locking = raise_permission_error
     monkeypatch.setitem(sys.modules, "msvcrt", fake_msvcrt)
-    monkeypatch.setattr(ownership_module.os, "name", "nt")
+    monkeypatch.setattr(
+        ownership_module,
+        "os",
+        types.SimpleNamespace(
+            name="nt",
+            SEEK_END=ownership_module.os.SEEK_END,
+        ),
+    )
 
     lock = ownership_module.ActionOwnershipLock(tmp_path, "permission-error")
     with pytest.raises(OSError) as captured:
@@ -92,7 +99,14 @@ def test_windows_lock_contention_errno_13(monkeypatch, tmp_path):
 
     fake_msvcrt.locking = raise_lock_contention
     monkeypatch.setitem(sys.modules, "msvcrt", fake_msvcrt)
-    monkeypatch.setattr(ownership_module.os, "name", "nt")
+    monkeypatch.setattr(
+        ownership_module,
+        "os",
+        types.SimpleNamespace(
+            name="nt",
+            SEEK_END=ownership_module.os.SEEK_END,
+        ),
+    )
 
     lock = ownership_module.ActionOwnershipLock(tmp_path, "busy-lock")
     with pytest.raises(ActionAlreadyOwnedError):
