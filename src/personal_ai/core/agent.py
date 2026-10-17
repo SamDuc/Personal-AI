@@ -1,7 +1,11 @@
 import json
+import re
 from collections.abc import Callable
+from contextlib import nullcontext
 from typing import Protocol
+from uuid import uuid4
 
+from personal_ai.core.audit import AuditSink, InMemoryAuditSink, make_audit_event
 from personal_ai.core.cloud_consent import CloudConsentError
 from personal_ai.core.conversation_session import ConversationSession
 from personal_ai.core.executor import Executor
@@ -52,6 +56,7 @@ class Agent:
         permission_evaluator: PermissionEvaluator | None = None,
         tool_calling_enabled: bool = False,
         max_tool_rounds: int = 5,
+        audit_sink: AuditSink | None = None,
     ) -> None:
         if (planner is None) != (executor is None):
             raise ValueError("planner and executor must be provided together")
@@ -77,6 +82,7 @@ class Agent:
         if max_tool_rounds < 1:
             raise ValueError("max_tool_rounds must be a positive integer")
         self.max_tool_rounds = max_tool_rounds
+        self.audit_sink = audit_sink if audit_sink is not None else InMemoryAuditSink()
 
     def run(
         self,
@@ -136,39 +142,43 @@ class Agent:
         retrieved_contexts: list[str] = []
         legacy_contexts: list[str] = []
 
-        if self.retrieval is not None:
-            retrieval_results = self.retrieval.retrieve(
-                RetrievalRequest(query=user_request)
-            )
+        retrieval_configured = self.retrieval is not None or self.retriever is not None
+        try:
+            if self.retrieval is not None:
+                retrieval_results = self.retrieval.retrieve(RetrievalRequest(query=user_request))
 
-            if not isinstance(retrieval_results, list):
-                raise ValueError(
-                    "retrieval capability must return a list"
-                )
+                if not isinstance(retrieval_results, list):
+                    raise ValueError("retrieval capability must return a list")
 
-            for result in retrieval_results:
-                if not isinstance(result, RetrievalResult):
-                    raise ValueError(
-                        "retrieval capability returned an invalid result"
-                    )
-
-            if self.content_access is not None:
                 for result in retrieval_results:
-                    content = self.content_access.read(result.item)
+                    if not isinstance(result, RetrievalResult):
+                        raise ValueError("retrieval capability returned an invalid result")
 
-                    if content is None:
-                        continue
+                if self.content_access is not None:
+                    for result in retrieval_results:
+                        content = self.content_access.read(result.item)
 
-                    if not isinstance(content, str):
-                        raise ValueError(
-                            "content access capability must return "
-                            "a string or None"
-                        )
+                        if content is None:
+                            continue
 
-                    retrieved_contexts.append(content)
+                        if not isinstance(content, str):
+                            raise ValueError(
+                                "content access capability must return a string or None"
+                            )
 
-        if self.retriever is not None:
-            legacy_contexts = self.retriever(user_request)
+                        retrieved_contexts.append(content)
+
+            if self.retriever is not None:
+                legacy_contexts = self.retriever(user_request)
+
+        except Exception as original_error:
+            if retrieval_configured:
+                self._emit_failure_audit_preserving_error(
+                    "retrieval", "context_retrieval", original_error
+                )
+            raise
+        if retrieval_configured:
+            self._emit_audit("retrieval", "success", "context_retrieval")
 
         # Persist the user turn before generation so failures do not
         # silently discard the user's request.
@@ -210,7 +220,7 @@ class Agent:
 
         if tool_definitions:
             try:
-                response = self.integration.generate(
+                response = self._generate_with_audit(
                     request_session,
                     tools=tool_definitions,
                 )
@@ -222,9 +232,9 @@ class Agent:
                     raise
 
                 # Retry once without tools if the model returned an empty response.
-                response = self.integration.generate(request_session)
+                response = self._generate_with_audit(request_session)
         else:
-            response = self.integration.generate(request_session)
+            response = self._generate_with_audit(request_session)
 
         rounds = 0
         while response.tool_calls and tool_definitions:
@@ -235,20 +245,50 @@ class Agent:
                 break
 
             for tool_call in response.tool_calls:
-                request_session.add_message(
-                    self._handle_model_tool_call(tool_call)
-                )
+                request_session.add_message(self._handle_model_tool_call(tool_call))
 
             rounds += 1
-            response = self.integration.generate(
+            response = self._generate_with_audit(
                 request_session,
                 tools=tool_definitions,
             )
 
-        session.add_message(
-            ChatMessage(role="assistant", content=response.text)
-        )
+        session.add_message(ChatMessage(role="assistant", content=response.text))
         return response.text
+
+    def _emit_audit(
+        self,
+        event_type: str,
+        outcome: str,
+        operation: str,
+        correlation_id: str | None = None,
+    ) -> None:
+        self.audit_sink.emit(make_audit_event(event_type, outcome, operation, correlation_id))
+
+    def _emit_failure_audit_preserving_error(
+        self,
+        event_type: str,
+        operation: str,
+        original_error: Exception,
+        correlation_id: str | None = None,
+    ) -> None:
+        try:
+            self._emit_audit(event_type, "failure", operation, correlation_id)
+        except Exception as audit_error:  # noqa: BLE001
+            # Preserve the primary operation error even if a custom audit sink fails.
+            original_error.add_note(
+                "Audit emission also failed while handling "
+                f"{event_type} failure ({type(audit_error).__name__})."
+            )
+
+    def _generate_with_audit(self, *args, **kwargs) -> LLMResponse:
+        try:
+            response = self.integration.generate(*args, **kwargs)
+        except Exception as original_error:
+            self._emit_failure_audit_preserving_error("generation", "llm_generate", original_error)
+            raise
+        self._emit_audit("generation", "success", "llm_generate")
+        return response
 
     def _get_llm_tool_definitions(self) -> tuple[LLMToolDefinition, ...]:
         if not self.tool_calling_enabled or self.permission_evaluator is None:
@@ -276,7 +316,20 @@ class Agent:
         name = getattr(tool_call, "name", None)
         arguments = getattr(tool_call, "arguments", None)
 
-        def tool_message(payload: dict[str, object]) -> ChatMessage:
+        def tool_message(
+            payload: dict[str, object],
+            correlation_id: str | None = None,
+            audit: bool = True,
+        ) -> ChatMessage:
+            status = payload.get("status")
+            outcome = "success" if status == "success" else "failure"
+            safe_name = (
+                name
+                if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", name)
+                else "invalid_tool_name"
+            )
+            if audit:
+                self._emit_audit("action", outcome, safe_name, correlation_id)
             return ChatMessage(
                 role="tool",
                 content=json.dumps(payload, ensure_ascii=False),
@@ -375,33 +428,66 @@ class Agent:
             if property_schema.get("type") == "string" and (
                 not isinstance(value, str) or not value.strip()
             ):
-                return tool_message({
-                    "status": "invalid_input",
-                    "result": None,
-                    "error": f"Argument '{key}' must be a non-empty string.",
-                })
+                return tool_message(
+                    {
+                        "status": "invalid_input",
+                        "result": None,
+                        "error": f"Argument '{key}' must be a non-empty string.",
+                    }
+                )
 
         input_data: object = parsed
         input_field = definition.input_field
         if input_field is not None:
             if set(parsed) != {input_field}:
-                return tool_message({
-                    "status": "invalid_input",
-                    "result": None,
-                    "error": f"Expected exactly one argument: {input_field}.",
-                })
+                return tool_message(
+                    {
+                        "status": "invalid_input",
+                        "result": None,
+                        "error": f"Expected exactly one argument: {input_field}.",
+                    }
+                )
             input_data = parsed[input_field]
 
-        result = self.execute_registered_tool(
-            name=name,
-            input_data=input_data,
-            permission_evaluator=self.permission_evaluator,
+        safe_name = (
+            name
+            if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", name)
+            else "invalid_tool_name"
         )
-        return tool_message({
-            "status": result.status,
-            "result": result.result,
-            "error": result.error,
-        })
+        correlation_id = str(uuid4())
+
+        # Durable sinks provide cross-process ownership. In-memory test
+        # sinks intentionally remain lock-free.
+        lock_factory = getattr(self.audit_sink, "action_lock", None)
+        lock_context = (
+            lock_factory(correlation_id)
+            if callable(lock_factory)
+            else nullcontext()
+        )
+
+        # Hold ownership through intent, execution, and terminal audit.
+        with lock_context:
+            self._emit_audit("action", "intent", safe_name, correlation_id)
+            try:
+                result = self.execute_registered_tool(
+                    name=name,
+                    input_data=input_data,
+                    permission_evaluator=self.permission_evaluator,
+                )
+            except Exception as original_error:
+                self._emit_failure_audit_preserving_error(
+                    "action", safe_name, original_error, correlation_id
+                )
+                raise
+
+            return tool_message(
+                {
+                    "status": result.status,
+                    "result": result.result,
+                    "error": result.error,
+                },
+                correlation_id=correlation_id,
+            )
 
     def execute_registered_tool(
         self,
